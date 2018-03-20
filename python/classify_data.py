@@ -7,10 +7,17 @@
 #  LICENSE: MIT License (https://opensource.org/licenses/mit-license.html)
 #  AUTHOR: Jamie A. Jennings
 
+# Requires rosie to be installed (such as in the system location, like
+# /usr/local) or at least downloaded and built.  To run rosie out of
+# the download directory, set the environment variable ROSIE_HOME to
+# the rosie download directory, e.g.
+#
+# export ROSIE_HOME='/Users/jjennings/Work/Dev/public/rosie-pattern-language'
+#
 
 from __future__ import unicode_literals, print_function
 
-import sys, json, rosie
+import sys, os, json, rosie
 
 # ------------------------------------------------------------------
 # Adapt to work with python 2 or 3
@@ -184,7 +191,8 @@ def load_sample_data(filename, samplesize):
 class matcher():
 
     def __init__(self):
-        self.engine = rosie.engine()
+        rosie_home = os.getenv('ROSIE_HOME')
+        self.engine = rosie.engine(os.path.join(rosie_home, 'src/librosie/local') if rosie_home else None)
         self.engine.import_pkg(b'all')
         self.engine.import_pkg(b'csv')
         self.csv_pattern, errs = self.engine.compile(b'csv.comma')
