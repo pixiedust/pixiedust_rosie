@@ -62,13 +62,19 @@ class Schema_type_class:
 Schema_any_type = Schema_type_class('<any>')
 Schema_empty_type = Schema_type_class('<empty>')
 
+class Schema_record_type:
+    def __init__(self, parameters):
+        if type(parameters) != list:
+            raise TypeError("Schema_record_type requires a single parameter list")
+        self.parameters = parameters
+    def __str__(self):
+        return '<record>'
+
 # ------------------------------------------------------------------
 # Schema -- this is the main object
 #
 
 class Schema:
-    ANY = Schema_any_type
-    EMPTY = Schema_empty_type
     
     def __init__(self, colnames):
         self.colnames = colnames
@@ -92,13 +98,23 @@ class Schema:
         self.colmask = [True for _ in self.colnames]
 
     # ------------------------------------------------------------------
+    # Try to convert the raw data to the assigned native type
+    #
+    def convert(self, colnum):
+        ntype = self.native_types[colnum]
+        converted = list()
+        for row in self.sample_data:
+            converted.append(ntype(row[colnum] or ''))
+        return converted
+
+    # ------------------------------------------------------------------
     # Hide column
     #
     def hide_column(self, colnum):
         self.colmask[colnum] = False
 
     # ------------------------------------------------------------------
-    # Change column's native type
+    # Change column's native type assignment
     #
 
 
@@ -131,9 +147,20 @@ class Schema:
         self.rosie_types = self.sample_data_types[0][:]
         for col in range(0, len(self.sample_data_types[0])):
             for row in range(1, len(self.sample_data_types)):
-                if self.rosie_types[col] is not Schema_any_type:
-                    if self.sample_data_types[row][col] != self.rosie_types[col]:
-                        self.rosie_types[col] = Schema_any_type
+                rtype = self.rosie_types[col]
+                if rtype is Schema_any_type:
+                    # matches anything
+                    continue
+                elif isinstance(rtype, Schema_record_type):
+                    # matches only another record type with the same slots
+                    item_type = self.sample_data_types[row][col]
+                    if isinstance(item_type, Schema_record_type):
+                        if item_type.parameters == rtype.parameters:
+                            continue
+                elif self.sample_data_types[row][col] == rtype:
+                    # these types are rosie pattern names, which must match exactly
+                    continue
+                self.rosie_types[col] = Schema_any_type
 
     # ------------------------------------------------------------------
     # Build the list of native types by mapping from self.rosie_types
@@ -172,12 +199,12 @@ def load_sample_data(filename, samplesize):
         for col in row:
             if not col:
                 # No data in this field
-                s.sample_data_types[i].append(s.EMPTY)
+                s.sample_data_types[i].append(Schema_empty_type)
             else:
                 m = match.all(col)
                 best = most_specific(m)
                 if best['type'] == 'all.things':
-                    best_match_type = list(map(lambda s: s['subs'][0]['type'], best['subs']))
+                    best_match_type = Schema_record_type(list(map(lambda s: s['subs'][0]['type'], best['subs'])))
                 else:
                     best_match_type = best['type']
                 s.sample_data_types[i].append(best_match_type)
@@ -212,10 +239,29 @@ class matcher():
 
 
 # ------------------------------------------------------------------
-# Map the rosie types to numpy types
+# Map the rosie types to pandas scalar type
 #
+# Pandas supports scalars and arrays, where arrays may be of other arrays or
+# of scalars.  The scalar types appear to be the ones supported by numpy,
+# which are listed in numpy.ScalarType.
 
-default_type_map = {'num.int': int,
+available_types = {int, float, complex, long, bool, str, unicode, buffer}
+
+# We are TEMPORARILY not including the numpy types in the list of available
+# types.  They are:
+# <type 'numpy.unicode_'>, <type 'numpy.datetime64'>, <type 'numpy.uint64'>,
+# <type 'numpy.int64'>, <type 'numpy.void'>, <type 'numpy.timedelta64'>,
+# <type 'numpy.float16'>, <type 'numpy.uint8'>, <type 'numpy.int8'>,
+# <type 'numpy.object_'>, <type 'numpy.complex64'>, <type 'numpy.float32'>,
+# <type 'numpy.uint16'>, <type 'numpy.int16'>, <type 'numpy.bool_'>,
+# <type 'numpy.complex128'>, <type 'numpy.float64'>, <type 'numpy.uint32'>,
+# <type 'numpy.int32'>, <type 'numpy.string_'>, <type 'numpy.complex256'>,
+# <type 'numpy.float128'>, <type 'numpy.uint64'>, <type 'numpy.int64'>
+
+default_type_map = {Schema_any_type: str,
+                    Schema_empty_type: lambda x: None,
+                    Schema_record_type: str,
+                    'num.int': int,
                     'num.float': float,
                     'num.mantissa': float,
                     'all.identifier': str,
@@ -223,17 +269,13 @@ default_type_map = {'num.int': int,
 }
 
 def map_type(rtype, type_map):
-    if type(rtype) is list:
-        return str
-    elif rtype is Schema_any_type:
-        return str
-    elif rtype is Schema_empty_type:
-        return str
+    if isinstance(rtype, Schema_record_type):
+        conversion_fn = type_map[Schema_record_type]
     elif rtype in type_map:
-        return type_map[rtype]
+        conversion_fn = type_map[rtype]
     else:
         raise ValueError('No defined transformation for Rosie type ' + repr(rtype))
-
+    return conversion_fn
 
 # ----------------------------------------------------------------------------------------
 # Print functions for debugging
@@ -243,7 +285,7 @@ def print_sample_data_verbosely(s, rownum):
     print('  ',
           '#'.ljust(5),
           'Label'.ljust(20),
-          'Rosie type'.ljust(22),
+          'Rosie type'.ljust(18),
           'Native type'.ljust(16),
           '  ',
           'Sample data'.ljust(20),
@@ -254,7 +296,7 @@ def print_sample_data_verbosely(s, rownum):
         num = repr(colnum).ljust(5)
         label = label[:20].ljust(20)
         d = (datum and repr(datum)[:20] or "").ljust(20)
-        rt = repr(rtype)[:22].ljust(22)
+        rt = repr(rtype)[:22].ljust(18)
         nt = repr(ntype)[:16].ljust(16)
         converted = ntype(datum or '')
         deleted_ = s.colmask[colnum] and '  ' or '[ '
@@ -266,7 +308,7 @@ def print_sample_data_verbosely(s, rownum):
 def print_sample_data_column(s, colnum):
     rtype = s.rosie_types[colnum]
     print("Column", colnum, "has label", repr(s.colnames[colnum]), "and has",
-          (rtype is s.ANY) and "ambiguous type" or "type " + rtype)
+          (rtype is Schema_any_type) and "ambiguous type" or "type " + rtype)
     print("Here is sample data:")
     for rownum, row in enumerate(s.sample_data):
         rownum = repr(rownum).ljust(5)
@@ -275,7 +317,7 @@ def print_sample_data_column(s, colnum):
 
 def print_ambiguously_typed_columns(s):
     for colnum, rtype in enumerate(s.rosie_types):
-        if rtype is s.ANY:
+        if rtype is Schema_any_type:
             print_sample_data_column(s, colnum)
 
 

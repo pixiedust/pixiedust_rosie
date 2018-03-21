@@ -39,9 +39,6 @@ def test():
     s = classify_data.load_sample_data(datafile, samplesize)
     s.process_sample_data()
 
-    print("\nData has", s.cols, "columns, and sample set has", len(s.sample_data), "rows")
-    print()
-
     for removed_row in s.inconsistent_rows:
         i, row = removed_row
         if len(row) > s.cols:
@@ -53,9 +50,14 @@ def test():
     print("In a sample of", samplesize, "rows, we excluded", len(s.inconsistent_rows),
           "rows which did not have the expected number of columns.")
 
+    print("\nData has", s.cols, "columns, and sample set has", len(s.sample_data), "rows")
     print()
-    print("For demonstration purposes, we will delete column 4...")
+
+    print()
+    print("For demonstration purposes, we will delete columns 4 and 22-end...")
     s.hide_column(4)
+    for i in range(22, s.cols):
+        s.hide_column(i)
 
     print()
     classify_data.print_sample_data_verbosely(s, 0)
@@ -70,13 +72,13 @@ def test():
     print(s.native_types)
 
     print()
-    for i in range(4, s.cols):
-        s.hide_column(i)
-
     print("Sample data with visible columns only")
     for row in s.sample_data:
         visible = [datum for i, datum in enumerate(row) if s.colmask[i]]
         print(visible)
 
+    for c in range(0, s.cols):
+        data = s.convert(c)
+        print(c, data)
 
 test()
