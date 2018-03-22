@@ -157,17 +157,6 @@ class Schema:
         self.column_visibility[colnum] = False
 
     # ------------------------------------------------------------------
-    # Change column's rosie type and re-process that column
-    #
-    # def set_rosie_type(self, colnum, pattern_name, optional_rpl=None):
-    #     self.rosie_types[colnum] = pattern_name
-    #     self.rpl[colnum] = optional_rpl
-    #     pat = self.matcher.compile(pattern_name, optional_rpl)
-    #     for rownum, row in enumerate(self.sample_data):
-    #         m = self.matcher.match(pat, row[colnum])
-    #         self.sample_data_types[rownum][colnum] = m and m['type'] or None
-
-    # ------------------------------------------------------------------
     # Change column's native type assignment
     #
     def set_native_type(self, colnum, conversion_fn):

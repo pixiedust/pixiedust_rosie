@@ -94,7 +94,7 @@ def test():
 
     print()
     print("Make a new column based on column 26 to extract the numeric part:")
-    new = s.new_column(26, '{[^0-9]* n}', 'n', 'n=[0-9]*')#"Crude" & message:#hi')
+    new = s.new_column(26, '{[^0-9]* n}', 'n', 'n=[0-9]*')
     print(new)
 
 
