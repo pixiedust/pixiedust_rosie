@@ -76,36 +76,77 @@ class Schema_record_type:
 
 class Schema:
     
-    def __init__(self, colnames):
-        self.colnames = colnames
-        self.cols = len(colnames)
+    def __init__(self, filename, samplesize):
+        self.filename = filename
+        self.samplesize = samplesize
+        self.colnames = None
+        self.cols = None
         self.sample_data = None           # all requested rows
         self.sample_data_types = None     # rosie types for the original data
         self.rosie_types = None           # "final" set of rosie types
         self.native_types = None          # rosie types mapped onto native types
-        self.inconsistent_rows = list()   # list of (rownum, rowdata)
+        self.inconsistent_rows = None   # list of (rownum, rowdata)
         self.colmask = None
         self.type_map = default_type_map.copy()
-        self.engine = None
 
     # ------------------------------------------------------------------
     # Process
     #
-    def process_sample_data(self):
-        self.do_consistency_check()
+    def load_and_process(self):
+        self.match = matcher()
+        self.load_sample_data()
+        assert(self.sample_data)
+        self.set_number_of_cols()
+        assert(self.cols)
+        self.rectangularize()
+        self.generate_rosie_types()
+        assert(self.sample_data_types)
         self.resolve_type_ambiguities()
+        assert(self.rosie_types)
         self.assign_native_types()
         self.colmask = [True for _ in self.colnames]
 
     # ------------------------------------------------------------------
+    # Load sample data from file
+    #
+    def load_sample_data(self):
+        f = open(self.filename)
+        csv = self.match.csv(f.readline())
+        self.colnames = list(map(lambda sub: sub['data'].rstrip(), csv['subs']))
+        self.sample_data = list()
+        for i in range(self.samplesize):
+            rowstring = f.readline().rstrip()
+            csv = self.match.csv(rowstring)
+            row = list()
+            for item in csv['subs']:
+                if 'subs' in item:
+                    datum = item['subs'][0]['data']
+                else:
+                    datum = item['data']
+                row.append(datum or None)
+            self.sample_data.append(row)
+
+    # ------------------------------------------------------------------
+    # We can be smarter about this in the future
+    #
+    def set_number_of_cols(self):
+        self.cols = len(self.colnames)
+
+    # ------------------------------------------------------------------
     # Try to convert the raw data to the assigned native type
     #
-    def convert(self, colnum):
+    def convert(self, colnum, error_value = None):
         ntype = self.native_types[colnum]
         converted = list()
-        for row in self.sample_data:
-            converted.append(ntype(row[colnum] or ''))
-        return converted
+        failures = list()
+        for rownum, row in enumerate(self.sample_data):
+            try:
+                datum = ntype(row[colnum])
+            except:
+                datum = error_value
+                failures.append(rownum)
+            converted.append(datum)
+        return converted, failures
 
     # ------------------------------------------------------------------
     # Hide column
@@ -116,36 +157,60 @@ class Schema:
     # ------------------------------------------------------------------
     # Change column's native type assignment
     #
-
-
+    def set_type(self, colnum, conversion_fn):
+        self.native_types[colnum] = conversion_fn
 
     # ------------------------------------------------------------------
     # Create column(s) via a Rosie pattern applied to an existing column
     #
-    
-
+    def new_column(self, colnum, pattern, conversion_fn = None):
+        pass
 
     # ------------------------------------------------------------------
-    # Check for consistent number of columns, taking the number of column
-    # names as canonical.  Delete any rows that do not conform.
+    # Delete any rows (actually remove them) that do not have the right
+    # number of columns.  In the future maybe we could use heuristics or
+    # user guidance to fix these rows.  On exit, self.sample_data is
+    # rectangular.
     #
-    def do_consistency_check(self):
+    def rectangularize(self):
+        self.inconsistent_rows = list()
         for i, row in enumerate(self.sample_data):
             if len(row) != self.cols:
                 self.inconsistent_rows.append( (i, row) )
-                del(self.sample_data_types[i])
                 del(self.sample_data[i])
+
+    # ------------------------------------------------------------------
+    # Create (or overwrite) self.sample_data_types
+    #
+    def generate_rosie_types(self):
+        self.sample_data_types = list()
+        for i, row in enumerate(self.sample_data):
+            self.sample_data_types.append(list())
+            for col in row:
+                if not col:
+                    # No data in this field
+                    self.sample_data_types[i].append(Schema_empty_type)
+                else:
+                    m = self.match.all(col)
+                    best = most_specific(m)
+                    if best['type'] == 'all.things':
+                        best_match_type = Schema_record_type(list(map(lambda s: s['subs'][0]['type'], best['subs'])))
+                    else:
+                        best_match_type = best['type']
+                    self.sample_data_types[i].append(best_match_type)
 
     # ------------------------------------------------------------------
     # Find ambiguous Rosie types within the sample data, and change
     # rosie_types[col] for each such col to Schema_any_type.
+    #
+    # Assumes every row of sample_data has self.cols columns.
     #
     # We will take the types of the first row of data as canonical.  In
     # the future, we should probably do something more sophisticated.
     #
     def resolve_type_ambiguities(self):
         self.rosie_types = self.sample_data_types[0][:]
-        for col in range(0, len(self.sample_data_types[0])):
+        for col in range(0, self.cols):
             for row in range(1, len(self.sample_data_types)):
                 rtype = self.rosie_types[col]
                 if rtype is Schema_any_type:
@@ -171,44 +236,6 @@ class Schema:
             ntypes.append(map_type(self.rosie_types[col], self.type_map))
         self.native_types = ntypes
 
-
-# ------------------------------------------------------------------
-# Load sample data from file and create initial schema object
-#
-
-def load_sample_data(filename, samplesize):
-    match = matcher()
-    f = open(filename)
-    csv = match.csv(f.readline())
-    colnames = list(map(lambda sub: sub['data'].rstrip(), csv['subs']))
-    s = Schema(colnames)
-    s.sample_data_types = list()
-    s.sample_data = list()
-    for i in range(samplesize):
-        rowstring = f.readline().rstrip()
-        csv = match.csv(rowstring)
-        row = list()
-        for item in csv['subs']:
-            if 'subs' in item:
-                datum = item['subs'][0]['data']
-            else:
-                datum = item['data']
-            row.append(datum or False)
-        s.sample_data.append(row)
-        s.sample_data_types.append(list())
-        for col in row:
-            if not col:
-                # No data in this field
-                s.sample_data_types[i].append(Schema_empty_type)
-            else:
-                m = match.all(col)
-                best = most_specific(m)
-                if best['type'] == 'all.things':
-                    best_match_type = Schema_record_type(list(map(lambda s: s['subs'][0]['type'], best['subs'])))
-                else:
-                    best_match_type = best['type']
-                s.sample_data_types[i].append(best_match_type)
-    return s
 
 
 # ------------------------------------------------------------------
@@ -236,6 +263,18 @@ class matcher():
         if data:
             return json.loads(data)
         raise RuntimeError("pattern 'all' failed to match: " + raw_data)
+
+    def custom(self, pattern_name, optional_rpl, raw_data):
+        # TODO: memoize so that we only load once, and only compile once per
+        # column (i.e. optional_rpl for cols n and m could use the same rpl
+        # variables for different purposes)
+        if optional_rpl:
+            self.engine.load(bytes23(optional_rpl))
+        pat = self.engine.compile(bytes23(pattern_name))
+        data, leftover, abend, t0, t1 = self.engine.match(pat, bytes23(raw_data), 1, b"json")
+        if data:
+            return json.loads(data)
+        raise RuntimeError("pattern '" + pattern_name + "' failed to match: " + raw_data)
 
 
 # ------------------------------------------------------------------

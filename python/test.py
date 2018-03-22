@@ -36,8 +36,8 @@ except NameError:
 
 
 def test():
-    s = classify_data.load_sample_data(datafile, samplesize)
-    s.process_sample_data()
+    s = classify_data.Schema(datafile, samplesize)
+    s.load_and_process()
 
     for removed_row in s.inconsistent_rows:
         i, row = removed_row
@@ -78,7 +78,19 @@ def test():
         print(visible)
 
     for c in range(0, s.cols):
-        data = s.convert(c)
+        data, errs = s.convert(c)
         print(c, data)
+        print(c, "rows that failed:", errs)
+
+    print()
+    print("Now we change the native type of column 0 to float:")
+    s.set_type(0, float)
+    print(0, s.convert(0))
+
+    print()
+    print("Now we change the native type of column 11 to complex:")
+    s.set_type(11, complex)
+    print(11, s.convert(11, 'FAIL'))
+
 
 test()
