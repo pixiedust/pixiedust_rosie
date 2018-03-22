@@ -74,7 +74,7 @@ def test():
     print()
     print("Sample data with visible columns only")
     for row in s.sample_data:
-        visible = [datum for i, datum in enumerate(row) if s.colmask[i]]
+        visible = [datum for i, datum in enumerate(row) if s.column_visibility[i]]
         print(visible)
 
     for c in range(0, s.cols):
@@ -84,13 +84,18 @@ def test():
 
     print()
     print("Now we change the native type of column 0 to float:")
-    s.set_type(0, float)
+    s.set_native_type(0, float)
     print(0, s.convert(0))
 
     print()
     print("Now we change the native type of column 11 to complex:")
-    s.set_type(11, complex)
-    print(11, s.convert(11, 'FAIL'))
+    s.set_native_type(11, complex)
+    print(11, s.convert(11, '*FAIL*'))
+
+    print()
+    print("Make a new column based on column 26 to extract the numeric part:")
+    new = s.new_column(26, '{[^0-9]* n}', 'n', 'n=[0-9]*')#"Crude" & message:#hi')
+    print(new)
 
 
 test()

@@ -79,21 +79,23 @@ class Schema:
     def __init__(self, filename, samplesize):
         self.filename = filename
         self.samplesize = samplesize
-        self.colnames = None
-        self.cols = None
-        self.sample_data = None           # all requested rows
-        self.sample_data_types = None     # rosie types for the original data
-        self.rosie_types = None           # "final" set of rosie types
-        self.native_types = None          # rosie types mapped onto native types
-        self.inconsistent_rows = None   # list of (rownum, rowdata)
-        self.colmask = None
+        self.matcher = None               # Rosie matcher
+        self.colnames = None              # First line of csv input
+        self.cols = None                  # Number of columns
+        self.sample_data = None           # All requested rows
+        self.sample_data_types = None     # Rosie types for all rows
+        self.rosie_types = None           # Final set of rosie types
+        self.rpl = None                   # Optional rpl to load prior to using rosie_types
+        self.native_types = None          # Pandas/Numpy types mapped from rosie_types
+        self.inconsistent_rows = None     # list of (rownum, rowdata) tuples
+        self.column_visibility = None     # list of booleans, True=visible
         self.type_map = default_type_map.copy()
 
     # ------------------------------------------------------------------
     # Process
     #
     def load_and_process(self):
-        self.match = matcher()
+        self.matcher = Matcher()
         self.load_sample_data()
         assert(self.sample_data)
         self.set_number_of_cols()
@@ -104,19 +106,19 @@ class Schema:
         self.resolve_type_ambiguities()
         assert(self.rosie_types)
         self.assign_native_types()
-        self.colmask = [True for _ in self.colnames]
+        self.column_visibility = [True for _ in self.colnames]
 
     # ------------------------------------------------------------------
     # Load sample data from file
     #
     def load_sample_data(self):
         f = open(self.filename)
-        csv = self.match.csv(f.readline())
+        csv = self.matcher.csv(f.readline())
         self.colnames = list(map(lambda sub: sub['data'].rstrip(), csv['subs']))
         self.sample_data = list()
         for i in range(self.samplesize):
             rowstring = f.readline().rstrip()
-            csv = self.match.csv(rowstring)
+            csv = self.matcher.csv(rowstring)
             row = list()
             for item in csv['subs']:
                 if 'subs' in item:
@@ -152,19 +154,36 @@ class Schema:
     # Hide column
     #
     def hide_column(self, colnum):
-        self.colmask[colnum] = False
+        self.column_visibility[colnum] = False
+
+    # ------------------------------------------------------------------
+    # Change column's rosie type and re-process that column
+    #
+    # def set_rosie_type(self, colnum, pattern_name, optional_rpl=None):
+    #     self.rosie_types[colnum] = pattern_name
+    #     self.rpl[colnum] = optional_rpl
+    #     pat = self.matcher.compile(pattern_name, optional_rpl)
+    #     for rownum, row in enumerate(self.sample_data):
+    #         m = self.matcher.match(pat, row[colnum])
+    #         self.sample_data_types[rownum][colnum] = m and m['type'] or None
 
     # ------------------------------------------------------------------
     # Change column's native type assignment
     #
-    def set_type(self, colnum, conversion_fn):
+    def set_native_type(self, colnum, conversion_fn):
         self.native_types[colnum] = conversion_fn
 
     # ------------------------------------------------------------------
     # Create column(s) via a Rosie pattern applied to an existing column
     #
-    def new_column(self, colnum, pattern, conversion_fn = None):
-        pass
+    def new_column(self, colnum, expression, component_name, optional_rpl=None):
+        newcol = list()
+        pat = self.matcher.compile(expression, optional_rpl)
+        for rownum, row in enumerate(self.sample_data):
+            m = self.matcher.match(pat, row[colnum])
+            datum = self.matcher.extract(m, component_name)
+            newcol.append(datum)
+        return newcol
 
     # ------------------------------------------------------------------
     # Delete any rows (actually remove them) that do not have the right
@@ -191,7 +210,7 @@ class Schema:
                     # No data in this field
                     self.sample_data_types[i].append(Schema_empty_type)
                 else:
-                    m = self.match.all(col)
+                    m = self.matcher.all(col)
                     best = most_specific(m)
                     if best['type'] == 'all.things':
                         best_match_type = Schema_record_type(list(map(lambda s: s['subs'][0]['type'], best['subs'])))
@@ -210,6 +229,7 @@ class Schema:
     #
     def resolve_type_ambiguities(self):
         self.rosie_types = self.sample_data_types[0][:]
+        self.rpl = list(map(lambda c: None, self.rosie_types))
         for col in range(0, self.cols):
             for row in range(1, len(self.sample_data_types)):
                 rtype = self.rosie_types[col]
@@ -237,12 +257,11 @@ class Schema:
         self.native_types = ntypes
 
 
-
 # ------------------------------------------------------------------
 # Rosie matching functions
 #
 
-class matcher():
+class Matcher():
 
     def __init__(self):
         rosie_home = os.getenv('ROSIE_HOME')
@@ -264,18 +283,28 @@ class matcher():
             return json.loads(data)
         raise RuntimeError("pattern 'all' failed to match: " + raw_data)
 
-    def custom(self, pattern_name, optional_rpl, raw_data):
-        # TODO: memoize so that we only load once, and only compile once per
-        # column (i.e. optional_rpl for cols n and m could use the same rpl
-        # variables for different purposes)
-        if optional_rpl:
-            self.engine.load(bytes23(optional_rpl))
-        pat = self.engine.compile(bytes23(pattern_name))
-        data, leftover, abend, t0, t1 = self.engine.match(pat, bytes23(raw_data), 1, b"json")
+    def compile(self, pattern_name, optional_rpl = None):
+        if optional_rpl: self.engine.load(bytes23(optional_rpl))
+        pat, errs = self.engine.compile(bytes23(pattern_name))
+        if not pat:
+            raise RuntimeError("pattern '" + pattern_name + "' failed to compile: " + errs)
+        return pat
+
+    def match(self, compiled_pattern, raw_data):
+        data, leftover, abend, t0, t1 = self.engine.match(compiled_pattern, bytes23(raw_data), 1, b"json")
         if data:
             return json.loads(data)
-        raise RuntimeError("pattern '" + pattern_name + "' failed to match: " + raw_data)
+        return None
 
+    def extract(self, match_result, component_name):
+        if not match_result: return None
+        if (match_result['type'] == component_name):
+            return match_result['data']
+        elif 'subs' in match_result:
+            for sub in match_result['subs']:
+                found = self.extract(sub, component_name)
+                if found: return found
+        return None
 
 # ------------------------------------------------------------------
 # Map the rosie types to pandas scalar type
@@ -338,8 +367,8 @@ def print_sample_data_verbosely(s, rownum):
         rt = repr(rtype)[:22].ljust(18)
         nt = repr(ntype)[:16].ljust(16)
         converted = ntype(datum or '')
-        deleted_ = s.colmask[colnum] and '  ' or '[ '
-        _deleted = s.colmask[colnum] and '  ' or ' ]'
+        deleted_ = s.column_visibility[colnum] and '  ' or '[ '
+        _deleted = s.column_visibility[colnum] and '  ' or ' ]'
         print(deleted_, num, label, rt, '=>', nt, d, str(converted)[:40], _deleted)
         colnum = colnum + 1
 
