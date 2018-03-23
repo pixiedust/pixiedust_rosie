@@ -94,8 +94,18 @@ def test():
 
     print()
     print("Make a new column based on column 26 to extract the numeric part:")
-    new = s.new_column(26, '{[^0-9]* n}', 'n', 'n=[0-9]*')
+    new = s.new_columns(26, '{[^0-9]* n}', ['n'], 'n=[0-9]*')
     print(new)
 
+
+    print()
+    print("Make TWO new columns based on column 26 to extract the alpha prefix and the numeric part:")
+    new = s.new_columns(26, '{prefix num.int}', ['prefix', 'num.int'], 'import num; prefix=[A-Z]+')
+    print(new)
+
+    print()
+    print("COMMIT the two cols above:")
+    new = s.commit_new_columns(26, '{prefix num.int}', ['prefix', 'num.int'], 'import num; prefix=[A-Z]+')
+    classify_data.print_sample_data_verbosely(s, 0)
 
 test()

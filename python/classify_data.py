@@ -69,6 +69,8 @@ class Schema_record_type:
         self.parameters = parameters
     def __str__(self):
         return '<record>'
+    def __repr__(self):
+        return repr(self.parameters)
 
 # ------------------------------------------------------------------
 # Schema -- this is the main object
@@ -104,9 +106,10 @@ class Schema:
         self.generate_rosie_types()
         assert(self.sample_data_types)
         self.resolve_type_ambiguities()
-        assert(self.rosie_types)
+        assert(len(self.rosie_types)==self.cols)
         self.assign_native_types()
         self.column_visibility = [True for _ in self.colnames]
+        self.synthetic_column = [False for _ in self.colnames]
 
     # ------------------------------------------------------------------
     # Load sample data from file
@@ -165,15 +168,40 @@ class Schema:
     # ------------------------------------------------------------------
     # Create column(s) via a Rosie pattern applied to an existing column
     #
-    def new_column(self, colnum, expression, component_name, optional_rpl=None):
-        newcol = list()
+    def new_columns(self, colnum, expression, component_names, optional_rpl=None):
         pat = self.matcher.compile(expression, optional_rpl)
+        newcols = list(map(lambda cn: list(), component_names))
         for rownum, row in enumerate(self.sample_data):
             m = self.matcher.match(pat, row[colnum])
-            datum = self.matcher.extract(m, component_name)
-            newcol.append(datum)
-        return newcol
+            for compnum, cn in enumerate(component_names):
+                datum = self.matcher.extract(m, cn)
+                newcols[compnum].append(datum)
+        return newcols
 
+    def commit_new_columns(self, colnum, expression, component_names, optional_rpl=None):
+        newcols = self.new_columns(colnum, expression, component_names, optional_rpl)
+        self.cols += len(component_names)
+        for i, cn in enumerate(component_names):
+            newcolnum = colnum + i + 1
+            # Sample data and its types are stored by row
+            for rownum in range(len(self.sample_data)):
+                self.sample_data[rownum].insert(newcolnum, newcols[i][rownum])
+                self.sample_data_types[rownum].insert(newcolnum, cn)
+            # The other fields are column-oriented
+            self.column_visibility.insert(newcolnum, True)
+            self.colnames.insert(newcolnum, cn)
+            self.rosie_types.insert(newcolnum, cn)
+            self.synthetic_column.insert(newcolnum,
+                                              {'col': colnum,
+                                               'exp': expression,
+                                               'name': cn,
+                                               'rpl': optional_rpl
+                                              })
+            if not (cn in self.type_map):
+                # Use a default native type, which the user can change later
+                self.type_map[cn] = str
+            self.assign_native_type(newcolnum)
+        
     # ------------------------------------------------------------------
     # Delete any rows (actually remove them) that do not have the right
     # number of columns.  In the future maybe we could use heuristics or
@@ -239,12 +267,15 @@ class Schema:
     # ------------------------------------------------------------------
     # Build the list of native types by mapping from self.rosie_types
     #
-    def assign_native_types(self):
-        ntypes = list()
-        for col in range(0, self.cols):
-            ntypes.append(map_type(self.rosie_types[col], self.type_map))
-        self.native_types = ntypes
+    def assign_native_type(self, colnum):
+        self.native_types.insert(colnum,
+                                 map_type(self.rosie_types[colnum],
+                                          self.type_map))
 
+    def assign_native_types(self):                                     
+        self.native_types = list()
+        for col in range(0, self.cols):
+            self.assign_native_type(col)
 
 # ------------------------------------------------------------------
 # Rosie matching functions
@@ -348,17 +379,25 @@ def print_sample_data_verbosely(s, rownum):
           'Sample data'.ljust(20),
           'Converted')
     print()
+    # The convert() method returns converted data list and failure list.
+    converted_sample_data_by_col = [s.convert(colnum, '<fail>')[0] for colnum in range(0, s.cols)]
+    # The prefix '*' to an argument to zip transposes the arg.
+    converted_sample_data = zip(*converted_sample_data_by_col)
     colnum = 0
-    for label, datum, rtype, ntype in zip(s.colnames, s.sample_data[rownum], s.rosie_types, s.native_types):
+    for label, datum, rtype, ntype, converted in zip(s.colnames,
+                                                     s.sample_data[rownum],
+                                                     s.rosie_types,
+                                                     s.native_types,
+                                                     converted_sample_data[rownum]):
         num = repr(colnum).ljust(5)
         label = label[:20].ljust(20)
         d = (datum and repr(datum)[:20] or "").ljust(20)
-        rt = repr(rtype)[:22].ljust(18)
+        rt = repr(rtype)[:18].ljust(18)
         nt = repr(ntype)[:16].ljust(16)
-        converted = ntype(datum or '')
-        deleted_ = s.column_visibility[colnum] and '  ' or '[ '
-        _deleted = s.column_visibility[colnum] and '  ' or ' ]'
-        print(deleted_, num, label, rt, '=>', nt, d, str(converted)[:40], _deleted)
+        deleted_ = s.column_visibility[colnum] and ' ' or '['
+        _deleted = s.column_visibility[colnum] and ' ' or ']'
+        synthetic = s.synthetic_column[colnum] and '+' or ' '
+        print(deleted_, synthetic, num, label, rt, '=>', nt, d, str(converted)[:40], _deleted)
         colnum = colnum + 1
 
 
