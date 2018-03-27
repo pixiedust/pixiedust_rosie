@@ -1,0 +1,15 @@
+OVR01
+GEN01
+AGE07
+Durham, NC, United States
+Boston, MA, U.S.A.
+18-24                     
+25-44                      
+45-64                      
+3x
+10x
+4/5
+11/100
+(1, 2, 3)
+[foo; bar]
+{Anchorage, Boston, Chicago, Detroit}
