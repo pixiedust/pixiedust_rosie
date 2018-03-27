@@ -98,14 +98,20 @@ def test():
     print(new)
 
 
+# ---------------------------------------------------------------------------------------------------
     print()
     print("Make TWO new columns based on column 26 to extract the alpha prefix and the numeric part:")
+
     new = s.new_columns(26, '{prefix num.int}', ['prefix', 'num.int'], 'import num; prefix=[A-Z]+')
     print(new)
 
     print()
     print("COMMIT the two cols above:")
-    new = s.commit_new_columns(26, '{prefix num.int}', ['prefix', 'num.int'], 'import num; prefix=[A-Z]+')
+
+    s.commit_new_columns(26, '{prefix BreakOutCode}', ['prefix', 'BreakOutCode'], 'import num; BreakOutCode=num.int; prefix=[A-Z]+')
+    s.set_native_type(28, lambda x: "foo"+str(int(x)))
     classify_data.print_sample_data_verbosely(s, 0)
+# ---------------------------------------------------------------------------------------------------
 
 test()
+
