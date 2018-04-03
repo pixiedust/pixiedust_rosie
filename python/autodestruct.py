@@ -68,7 +68,14 @@ class Matcher():
         self.all_pattern, errs = self.engine.compile(b'all.things')
 
     def loadfile(self, filename):
-        self.engine.loadfile(bytes23(filename))
+        ok, _, messages = self.engine.loadfile(bytes23(filename))
+        if not ok:
+            raise RuntimeError("file {} failed to load:\n{}".format(filename, messages))
+        
+    def load(self, rpl_block):
+        ok, _, messages = self.engine.load(bytes23(rpl_block))
+        if not ok:
+            raise RuntimeError("rpl code block ({}...) failed to load:\n{}".format(rpl_block[:20], messages))
         
     def csv(self, raw_data):
         data, leftover, abend, t0, t1 = self.engine.match(self.csv_pattern, bytes23(raw_data), 1, b"json")
@@ -134,3 +141,8 @@ with open(datafile) as f:
         if not m:
             print(datum.rstrip(), "has no structure that we can recognize")
         print('{:40} {:30} {}'.format(datum.rstrip(), describe(m), fields(m)))
+
+
+## Some testing of Matcher below:
+
+matcher.load('foobar')
