@@ -285,7 +285,8 @@ class Matcher():
 
     def __init__(self):
         rosie_home = os.getenv('ROSIE_HOME')
-        self.engine = rosie.engine(os.path.join(rosie_home, 'src/librosie/local') if rosie_home else None)
+        rosie.load(os.path.join(rosie_home, 'src/librosie/local') if rosie_home else None)
+        self.engine = rosie.engine()
         self.engine.import_pkg(b'all')
         self.engine.import_pkg(b'csv')
         self.csv_pattern, errs = self.engine.compile(b'csv.comma')
