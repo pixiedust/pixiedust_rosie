@@ -1,19 +1,13 @@
 #  -*- coding: utf-8; -*-
-#  -*- Mode: Python; -*-                                              
-# 
+#  -*- Mode: Python; -*-
+#
 #  classify_data.py
-# 
+#
 #  © Copyright IBM Corporation 2018.
 #  LICENSE: MIT License (https://opensource.org/licenses/mit-license.html)
 #  AUTHOR: Jamie A. Jennings
 
-# Requires rosie to be installed (such as in the system location, like
-# /usr/local) or at least downloaded and built.  To run rosie out of
-# the download directory, set the environment variable ROSIE_HOME to
-# the rosie download directory, e.g.
-#
-# export ROSIE_HOME='/Users/jjennings/Work/Dev/public/rosie-pattern-language'
-#
+# To install rosie: pip install rosie
 
 from __future__ import unicode_literals, print_function
 
@@ -41,7 +35,7 @@ def most_specific(match):
         if len(subs) > 1: return match
         match = subs[0]
     return match
-        
+
 
 # ------------------------------------------------------------------
 # Schema column types that are not strings
@@ -77,7 +71,7 @@ class Schema_record_type:
 #
 
 class Schema:
-    
+
     def __init__(self, filename, samplesize):
         self.filename = filename
         self.samplesize = samplesize
@@ -92,6 +86,7 @@ class Schema:
         self.inconsistent_rows = None     # list of (rownum, rowdata) tuples
         self.column_visibility = None     # list of booleans, True=visible
         self.type_map = default_type_map.copy()
+        self.transform = None
 
     # ------------------------------------------------------------------
     # Process
@@ -201,7 +196,7 @@ class Schema:
                 # Use a default native type, which the user can change later
                 self.type_map[cn] = str
             self.assign_native_type(newcolnum)
-        
+
     # ------------------------------------------------------------------
     # Delete any rows (actually remove them) that do not have the right
     # number of columns.  In the future maybe we could use heuristics or
@@ -272,10 +267,19 @@ class Schema:
                                  map_type(self.rosie_types[colnum],
                                           self.type_map))
 
-    def assign_native_types(self):                                     
+    def assign_native_types(self):
         self.native_types = list()
         for col in range(0, self.cols):
             self.assign_native_type(col)
+
+    def create_schema_table(self):
+        return zip(self.column_visibility, self.colnames, self.rosie_types, self.native_types)
+
+    def rename_column(self,colnum, new_name):
+        self.colnames[colnum] = new_name
+
+    def create_transform(self, colnum):
+        self.transform = Transform(colnum)
 
 # ------------------------------------------------------------------
 # Rosie matching functions
@@ -327,13 +331,46 @@ class Matcher():
         return None
 
 # ------------------------------------------------------------------
+# Rosie transform functions
+#
+
+class Transform:
+
+    def __init__(self, colnum):
+        self.colnum = colnum
+        self.pattern = None
+        self.components = None
+        self.additional_data = None
+        self.new_col_names = None
+        self.preview = None
+
+    def extract_components(self, pattern):
+        self.pattern = pattern
+        self.components = [Pattern("p1"), Pattern("p2")]
+
+    def define_pattern(self, index, pattern):
+        self.components[index].pattern_def = pattern
+
+    def create_sample_data(self):
+        self.new_col_names = ["p1", "p2"]
+        self.preview = [["c1r1","c2r1"],["c1r2","c2r2"]]
+
+class Pattern:
+
+    def __init__(self, name):
+        self.name = name
+        self.pattern_def = None
+        self.compiled = None
+        self.errors = None
+
+# ------------------------------------------------------------------
 # Map the rosie types to pandas scalar type
 #
 # Pandas supports scalars and arrays, where arrays may be of other arrays or
 # of scalars.  The scalar types appear to be the ones supported by numpy,
 # which are listed in numpy.ScalarType.
 
-available_types = {int, float, complex, long, bool, str, unicode, buffer}
+#available_types = {int, float, complex, bool, str, unicode, buffer}
 
 # We are TEMPORARILY not including the numpy types in the list of available
 # types.  They are:
@@ -418,5 +455,5 @@ def print_ambiguously_typed_columns(s):
 
 
 # ----------------------------------------------------------------------------------------
-# 
+#
 #
