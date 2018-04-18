@@ -41,6 +41,11 @@ class Matcher():
         self.csv_pattern, errs = self.engine.compile(b'csv.comma')
         self.all_pattern, errs = self.engine.compile(b'all.things')
 
+    def import_pkg(self, pkgname):
+        ok, _, messages = self.engine.import_pkg(bytes23(pkgname))
+        if not ok:
+            raise RuntimeError("RPL package {} failed to load:\n{}".format(pkgname, messages))
+        
     def loadfile(self, filename):
         ok, _, messages = self.engine.loadfile(bytes23(filename))
         if not ok:

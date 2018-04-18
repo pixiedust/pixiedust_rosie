@@ -3,8 +3,8 @@
 
 from __future__ import unicode_literals, print_function
 
-import sys, json, rosie, classify_data
-
+import sys, json, rosie, rosie_matcher, classify_data
+from adapt23 import str23, bytes23
 
 # ------------------------------------------------------------------
 # COMMAND LINE ARGUMENTS
@@ -21,19 +21,6 @@ except IndexError:
     samplesize = 1
 
 samplesize = int(samplesize)    
-
-# ------------------------------------------------------------------
-# Adapt to work with python 2 or 3
-#
-try:
-    HAS_UNICODE_TYPE = type(unicode) and True
-    str23 = lambda s: str(s)
-    bytes23 = lambda s: bytes(s)
-except NameError:
-    HAS_UNICODE_TYPE = False
-    str23 = lambda s: str(s, encoding='UTF-8')
-    bytes23 = lambda s: bytes(s, encoding='UTF-8')
-
 
 def test():
     s = classify_data.Schema(datafile, samplesize)
@@ -94,7 +81,12 @@ def test():
 
     print()
     print("Make a new column based on column 26 to extract the numeric part:")
-    new = s.new_columns(26, '{[^0-9]* n}', ['n'], 'n=[0-9]*')
+    tr1 = classify_data.Transform(26)
+    tr1.pattern = '{[^0-9]* n}'
+    pat_n = classify_data.Pattern('n')
+    pat_n.definition = '[0-9]*'
+    tr1.components.append(pat_n)
+    new = s.new_columns(tr1)
     print(new)
 
 
@@ -102,13 +94,22 @@ def test():
     print()
     print("Make TWO new columns based on column 26 to extract the alpha prefix and the numeric part:")
 
-    new = s.new_columns(26, '{prefix num.int}', ['prefix', 'num.int'], 'import num; prefix=[A-Z]+')
+    tr2 = classify_data.Transform(26)
+    tr2.pattern = '{prefix num.int}'
+    tr2.components = [classify_data.Pattern('prefix'), classify_data.Pattern('num.int')]
+    tr2.components[0].definition = '[A-Z]+'
+    tr2.imports.append('num')
+    
+    new = s.new_columns(tr2)
     print(new)
 
     print()
     print("COMMIT the two cols above:")
 
-    s.commit_new_columns(26, '{prefix BreakOutCode}', ['prefix', 'BreakOutCode'], 'import num; BreakOutCode=num.int; prefix=[A-Z]+')
+    s.commit_new_columns(tr2)
+
+    # '{prefix BreakOutCode}', ['prefix', 'BreakOutCode'], 'import num; BreakOutCode=num.int; prefix=[A-Z]+')
+
     s.set_native_type(28, lambda x: "foo"+str(int(x)))
     classify_data.print_sample_data_verbosely(s, 0)
 # ---------------------------------------------------------------------------------------------------

@@ -11,7 +11,7 @@
 
 from __future__ import unicode_literals, print_function
 
-import sys, os, json, rosie
+import sys, os, json, rosie_matcher
 
 # ------------------------------------------------------------------
 # Adapt to work with python 2 or 3
@@ -92,7 +92,7 @@ class Schema:
     # Process
     #
     def load_and_process(self):
-        self.matcher = Matcher()
+        self.matcher = rosie_matcher.Matcher()
         self.load_sample_data()
         assert(self.sample_data)
         self.set_number_of_cols()
@@ -163,8 +163,13 @@ class Schema:
     # ------------------------------------------------------------------
     # Create column(s) via a Rosie pattern applied to an existing column
     #
-    def new_columns(self, colnum, expression, component_names, optional_rpl=None):
-        pat = self.matcher.compile(expression, optional_rpl)
+    def new_columns(self, transformer):
+        colnum = transformer.colnum
+        expression = transformer.pattern
+        component_names = map(lambda c: c.name, transformer.components)
+        for pkg in transformer.imports:
+            self.matcher.import_pkg(pkg)
+        pat = self.matcher.compile(expression, transformer.generate_rpl())
         newcols = list(map(lambda cn: list(), component_names))
         for rownum, row in enumerate(self.sample_data):
             m = self.matcher.match(pat, row[colnum])
@@ -173,11 +178,12 @@ class Schema:
                 newcols[compnum].append(datum)
         return newcols
 
-    def commit_new_columns(self, colnum, expression, component_names, optional_rpl=None):
-        newcols = self.new_columns(colnum, expression, component_names, optional_rpl)
-        self.cols += len(component_names)
-        for i, cn in enumerate(component_names):
-            newcolnum = colnum + i + 1
+    def commit_new_columns(self, transformer):
+        newcols = self.new_columns(transformer)
+        self.cols += len(transformer.components)
+        for i, component in enumerate(transformer.components):
+            newcolnum = transformer.colnum + i + 1
+            cn = component.name
             # Sample data and its types are stored by row
             for rownum in range(len(self.sample_data)):
                 self.sample_data[rownum].insert(newcolnum, newcols[i][rownum])
@@ -187,10 +193,10 @@ class Schema:
             self.colnames.insert(newcolnum, cn)
             self.rosie_types.insert(newcolnum, cn)
             self.synthetic_column.insert(newcolnum,
-                                              {'col': colnum,
-                                               'exp': expression,
+                                              {'col': transformer.colnum,
+                                               'exp': component.definition,
                                                'name': cn,
-                                               'rpl': optional_rpl
+                                               'rpl': transformer.generate_rpl()
                                               })
             if not (cn in self.type_map):
                 # Use a default native type, which the user can change later
@@ -282,57 +288,8 @@ class Schema:
         self.transform = Transform(colnum)
 
 # ------------------------------------------------------------------
-# Rosie matching functions
-#
-
-class Matcher():
-
-    def __init__(self):
-        rosie_home = os.getenv('ROSIE_HOME')
-        rosie.load(os.path.join(rosie_home, 'src/librosie/local') if rosie_home else None)
-        self.engine = rosie.engine()
-        self.engine.import_pkg(b'all')
-        self.engine.import_pkg(b'csv')
-        self.csv_pattern, errs = self.engine.compile(b'csv.comma')
-        self.all_pattern, errs = self.engine.compile(b'all.things')
-
-    def csv(self, raw_data):
-        data, leftover, abend, t0, t1 = self.engine.match(self.csv_pattern, bytes23(raw_data), 1, b"json")
-        if data:
-            return json.loads(data)
-        raise RuntimeError("pattern 'csv' failed to match: " + raw_data)
-
-    def all(self, raw_data):
-        data, leftover, abend, t0, t1 = self.engine.match(self.all_pattern, bytes23(raw_data), 1, b"json")
-        if data:
-            return json.loads(data)
-        raise RuntimeError("pattern 'all' failed to match: " + raw_data)
-
-    def compile(self, pattern_name, optional_rpl = None):
-        if optional_rpl: self.engine.load(bytes23(optional_rpl))
-        pat, errs = self.engine.compile(bytes23(pattern_name))
-        if not pat:
-            raise RuntimeError("pattern '" + pattern_name + "' failed to compile: " + errs)
-        return pat
-
-    def match(self, compiled_pattern, raw_data):
-        data, leftover, abend, t0, t1 = self.engine.match(compiled_pattern, bytes23(raw_data), 1, b"json")
-        if data:
-            return json.loads(data)
-        return None
-
-    def extract(self, match_result, component_name):
-        if not match_result: return None
-        if (match_result['type'] == component_name):
-            return match_result['data']
-        elif 'subs' in match_result:
-            for sub in match_result['subs']:
-                found = self.extract(sub, component_name)
-                if found: return found
-        return None
-
-# ------------------------------------------------------------------
-# Rosie transform functions
+# Transform: Everything needed to transform a column of data into one
+# or more new columns, using a Rosie pattern.
 #
 
 class Transform:
@@ -340,17 +297,29 @@ class Transform:
     def __init__(self, colnum):
         self.colnum = colnum
         self.pattern = None
-        self.components = None
-        self.additional_data = None
-        self.new_col_names = None
+        self.components = list()
+        self.imports = list()
+        self.new_col_names = list()
         self.preview = None
+
+
+    def extract_imports(self, pattern):
+        pass
 
     def extract_components(self, pattern):
         self.pattern = pattern
         self.components = [Pattern("p1"), Pattern("p2")]
 
+    def generate_rpl(self, component_list = None):
+        if not component_list: component_list = self.components
+        rpl = ""
+        for p in component_list:
+            if p.definition:
+                rpl = rpl + p.name + "=" + p.definition + ";"
+        return rpl
+        
     def define_pattern(self, index, pattern):
-        self.components[index].pattern_def = pattern
+        self.components[index].definition = pattern
 
     def create_sample_data(self):
         self.new_col_names = ["p1", "p2"]
@@ -360,7 +329,7 @@ class Pattern:
 
     def __init__(self, name):
         self.name = name
-        self.pattern_def = None
+        self.definition = None
         self.compiled = None
         self.errors = None
 
