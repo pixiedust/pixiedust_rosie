@@ -10,7 +10,7 @@
 # To install rosie: pip install rosie
 
 from __future__ import unicode_literals, print_function
-import os, rosie
+import json, os, rosie
 from adapt23 import str23, bytes23
 
 # ------------------------------------------------------------------
@@ -31,8 +31,11 @@ def most_specific(match):
 class Matcher():
 
     def __init__(self):
+        # Check to see if user prefers to use their own installation
+        # of rosie, or one already installed on their system.
         rosie_home = os.getenv('ROSIE_HOME')
-        self.engine = rosie.engine(os.path.join(rosie_home, 'src/librosie/local') if rosie_home else None)
+        if rosie_home: rosie.load(os.path.join(rosie_home, 'src/librosie/local'))
+        self.engine = rosie.engine()
         self.engine.import_pkg(b'all')
         self.engine.import_pkg(b'csv')
         self.csv_pattern, errs = self.engine.compile(b'csv.comma')
@@ -69,7 +72,7 @@ class Matcher():
 
     def match(self, compiled_pattern, raw_data):
         data, leftover, abend, t0, t1 = self.engine.match(compiled_pattern, bytes23(raw_data), 1, b"json")
-        if data:
+        if data and (not abend) and (leftover == 0):
             return json.loads(data)
         return None
 
