@@ -11,7 +11,7 @@
 
 from __future__ import unicode_literals, print_function
 
-import sys, os, json, rosie_matcher
+import sys, destructure, rosie_matcher
 from adapt23 import str23, bytes23
 
 # ------------------------------------------------------------------
@@ -21,8 +21,10 @@ from adapt23 import str23, bytes23
 try:
     datafile = sys.argv[1] 
 except IndexError:
+    datafile = "sample_structured_data.txt"
     print("Missing required argument: name of data file")
-    sys.exit(-1)
+    print("Using default input file:", datafile)
+    print()
 
 # ------------------------------------------------------------------
 # Read the sample data line by line,
@@ -34,15 +36,15 @@ separators = set({'comma', 'semicolon', 'dash', 'slash', 'find.*'})
 
 def fields(m):
     return list(map(lambda s: s['data'],
-                    [ sub for sub in most_specific(m)['subs']
+                    [ sub for sub in rosie_matcher.most_specific(m)['subs']
                       if (sub['type'] not in separators and (sub['type'] != 'rest' or sub['data'] != '')) ] ))
 
 def describe(m):
-    key = most_specific(m)
+    key = rosie_matcher.most_specific(m)
     return '{} with {} fields'.format(key['type'], len(fields(m)))
 
 matcher = rosie_matcher.Matcher()
-matcher.loadfile('destructure.rpl')
+matcher.load(destructure.rpl)
 pat = matcher.compile('destructure.tryall')
 
 print('{:40} {:30} {}'.format('Field contents', 'Recognized as', 'Suggested destructuring'))
@@ -52,9 +54,9 @@ with open(datafile) as f:
         m = matcher.match(pat, datum.strip())
         if not m:
             print(datum.rstrip(), "has no structure that we can recognize")
-        print('{:40} {:30} {}'.format(datum.rstrip(), describe(m), fields(m)))
+        else:
+            print('{:40} {:30} {}'.format(datum.rstrip(), describe(m), fields(m)))
 
 
-## Some testing of Matcher below:
 
-matcher.load('foobar')
+

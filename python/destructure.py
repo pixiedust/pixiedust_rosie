@@ -1,3 +1,5 @@
+#  -*- coding: utf-8; -*-
+rpl = '''
 -- -*- Mode: rpl; -*-                                                                                   
 --
 -- destructure.rpl
@@ -79,3 +81,4 @@ alias tryall = parentheses /
 -- test tryall includes error "1, 2, 3]"
 
 
+'''
