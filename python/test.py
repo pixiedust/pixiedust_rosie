@@ -4,7 +4,7 @@
 from __future__ import unicode_literals, print_function
 
 import sys, json, rosie, rosie_matcher, classify_data
-from adapt23 import str23, bytes23
+from adapt23 import *
 
 # ------------------------------------------------------------------
 # COMMAND LINE ARGUMENTS
@@ -86,6 +86,7 @@ def test():
     pat_n = classify_data.Pattern('n')
     pat_n.definition = '[0-9]*'
     tr1.components.append(pat_n)
+    print('***', tr1)
     new = s.new_columns(tr1)
     print(new)
 

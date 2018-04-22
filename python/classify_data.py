@@ -12,18 +12,7 @@
 from __future__ import unicode_literals, print_function
 
 import sys, os, json, rosie_matcher
-
-# ------------------------------------------------------------------
-# Adapt to work with python 2 or 3
-#
-try:
-    HAS_UNICODE_TYPE = type(unicode) and True
-    str23 = lambda s: str(s)
-    bytes23 = lambda s: bytes(s)
-except NameError:
-    HAS_UNICODE_TYPE = False
-    str23 = lambda s: str(s, encoding='UTF-8')
-    bytes23 = lambda s: bytes(s, encoding='UTF-8')
+from adapt23 import *
 
 # ------------------------------------------------------------------
 # Utility functions
@@ -112,7 +101,7 @@ class Schema:
     def load_sample_data(self):
         f = open(self.filename)
         csv = self.matcher.csv(f.readline())
-        self.colnames = list(map(lambda sub: sub['data'].rstrip(), csv['subs']))
+        self.colnames = list(map23(lambda sub: sub['data'].rstrip(), csv['subs']))
         self.sample_data = list()
         for i in range(self.samplesize):
             rowstring = f.readline().rstrip()
@@ -166,11 +155,11 @@ class Schema:
     def new_columns(self, transformer):
         colnum = transformer.colnum
         expression = transformer.pattern
-        component_names = map(lambda c: c.name, transformer.components)
+        component_names = map23(lambda c: c.name, transformer.components)
         for pkg in transformer.imports:
             self.matcher.import_pkg(pkg)
         pat = self.matcher.compile(expression, transformer.generate_rpl())
-        newcols = list(map(lambda cn: list(), component_names))
+        newcols = list(map23(lambda cn: list(), component_names))
         for rownum, row in enumerate(self.sample_data):
             m = self.matcher.match(pat, row[colnum])
             for compnum, cn in enumerate(component_names):
@@ -231,7 +220,7 @@ class Schema:
                     m = self.matcher.all(col)
                     best = most_specific(m)
                     if best['type'] == 'all.things':
-                        best_match_type = Schema_record_type(list(map(lambda s: s['subs'][0]['type'], best['subs'])))
+                        best_match_type = Schema_record_type(list(map23(lambda s: s['subs'][0]['type'], best['subs'])))
                     else:
                         best_match_type = best['type']
                     self.sample_data_types[i].append(best_match_type)
@@ -247,7 +236,7 @@ class Schema:
     #
     def resolve_type_ambiguities(self):
         self.rosie_types = self.sample_data_types[0][:]
-        self.rpl = list(map(lambda c: None, self.rosie_types))
+        self.rpl = list(map23(lambda c: None, self.rosie_types))
         for col in range(0, self.cols):
             for row in range(1, len(self.sample_data_types)):
                 rtype = self.rosie_types[col]
@@ -279,7 +268,7 @@ class Schema:
             self.assign_native_type(col)
 
     def create_schema_table(self):
-        return zip(self.column_visibility, self.colnames, self.rosie_types, self.native_types)
+        return zip23(self.column_visibility, self.colnames, self.rosie_types, self.native_types)
 
     def rename_column(self,colnum, new_name):
         self.colnames[colnum] = new_name
@@ -302,7 +291,6 @@ class Transform:
         self.new_col_names = list()
         self.preview = None
 
-
     def extract_imports(self, pattern):
         pass
 
@@ -321,9 +309,9 @@ class Transform:
     def define_pattern(self, index, pattern):
         self.components[index].definition = pattern
 
-    def create_sample_data(self):
-        self.new_col_names = ["p1", "p2"]
-        self.preview = [["c1r1","c2r1"],["c1r2","c2r2"]]
+#     def create_sample_data(self):
+#         self.new_col_names = ["p1", "p2"]
+#         self.preview = [["c1r1","c2r1"],["c1r2","c2r2"]]
 
 class Pattern:
 
@@ -389,13 +377,13 @@ def print_sample_data_verbosely(s, rownum):
     # The convert() method returns converted data list and failure list.
     converted_sample_data_by_col = [s.convert(colnum, '<fail>')[0] for colnum in range(0, s.cols)]
     # The prefix '*' to an argument to zip transposes the arg.
-    converted_sample_data = zip(*converted_sample_data_by_col)
+    converted_sample_data = zip23(*converted_sample_data_by_col)
     colnum = 0
-    for label, datum, rtype, ntype, converted in zip(s.colnames,
-                                                     s.sample_data[rownum],
-                                                     s.rosie_types,
-                                                     s.native_types,
-                                                     converted_sample_data[rownum]):
+    for label, datum, rtype, ntype, converted in zip23(s.colnames,
+                                                       s.sample_data[rownum],
+                                                       s.rosie_types,
+                                                       s.native_types,
+                                                       converted_sample_data[rownum]):
         num = repr(colnum).ljust(5)
         label = label[:20].ljust(20)
         d = (datum and repr(datum)[:20] or "").ljust(20)
