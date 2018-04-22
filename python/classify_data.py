@@ -25,6 +25,13 @@ def most_specific(match):
         match = subs[0]
     return match
 
+def ref_to_name(ref):
+    assert('ref' in ref)
+    ref = ref['ref']
+    if 'packagename' in ref:
+        return ref['packagename'] + '.' + ref['localname'], True
+    else:
+        return ref['localname'], False
 
 # ------------------------------------------------------------------
 # Schema column types that are not strings
@@ -150,15 +157,54 @@ class Schema:
         self.native_types[colnum] = conversion_fn
 
     # ------------------------------------------------------------------
+    # Create a component pattern for each reference in the transformer pattern
+    #
+    def set_transform_components(self, transformer):
+        if (not transformer._pattern) or (not transformer._pattern._definition):
+            raise ValueError('Transformer has no pattern definition')
+        refs, errs = self.matcher.expression_refs(transformer._pattern._definition)
+        if (not refs) and errs:
+            raise RuntimeError("syntax error in pattern: " + repr(errs))
+        name_tuples = map23(ref_to_name, refs)
+        needing_definitions = set(map23(lambda t: t[0], filter(lambda t: not t[1], name_tuples)))
+        not_needing_definitions = set(map23(lambda t: t[0], filter(lambda t: t[1], name_tuples)))
+        transformer.components = map23(lambda name: Pattern(name, None), needing_definitions)
+        transformer.components.extend(map23(lambda name: Pattern(name, False), not_needing_definitions))
+        return needing_definitions
+        
+    # ------------------------------------------------------------------
+    # Compute and set the dependencies in all of a transformer patterns
+    #
+    def find_imports(self, expression):
+        if not expression:
+            raise ValueError('cannot find dependencies of null expression')
+        imports, errs = self.matcher.expression_deps(expression)
+        if (not imports) and errs:
+            raise RuntimeError("error finding dependencies in expression: " + repr(errs))
+        return imports or list()
+
+    def set_transform_imports(self, transformer):
+        if (not transformer._pattern) or (not transformer._pattern._definition):
+            raise ValueError('Transformer has no pattern')
+        transformer.imports = self.find_imports(transformer._pattern._definition)
+        for pat in transformer.components:
+            if pat._definition is not False:
+                transformer.imports.extend(self.find_imports(pat._definition))
+        return transformer.imports
+
+    # ------------------------------------------------------------------
     # Create column(s) via a Rosie pattern applied to an existing column
     #
     def new_columns(self, transformer):
-        colnum = transformer.colnum
-        expression = transformer.pattern
-        component_names = map23(lambda c: c.name, transformer.components)
+        if transformer.components is None:
+            raise ValueError('Transformer components not set')
+        if transformer.imports is None:
+            raise ValueError('Transformer imports not set')
         for pkg in transformer.imports:
             self.matcher.import_pkg(pkg)
-        pat = self.matcher.compile(expression, transformer.generate_rpl())
+        pat = self.matcher.compile(transformer._pattern._definition, transformer.generate_rpl())
+        colnum = transformer._colnum
+        component_names = map23(lambda c: str23(c._name), transformer.components)
         newcols = list(map23(lambda cn: list(), component_names))
         for rownum, row in enumerate(self.sample_data):
             m = self.matcher.match(pat, row[colnum])
@@ -171,8 +217,8 @@ class Schema:
         newcols = self.new_columns(transformer)
         self.cols += len(transformer.components)
         for i, component in enumerate(transformer.components):
-            newcolnum = transformer.colnum + i + 1
-            cn = component.name
+            newcolnum = transformer._colnum + i + 1
+            cn = str23(component._name)
             # Sample data and its types are stored by row
             for rownum in range(len(self.sample_data)):
                 self.sample_data[rownum].insert(newcolnum, newcols[i][rownum])
@@ -182,8 +228,8 @@ class Schema:
             self.colnames.insert(newcolnum, cn)
             self.rosie_types.insert(newcolnum, cn)
             self.synthetic_column.insert(newcolnum,
-                                              {'col': transformer.colnum,
-                                               'exp': component.definition,
+                                              {'col': transformer._colnum,
+                                               'exp': component._definition,
                                                'name': cn,
                                                'rpl': transformer.generate_rpl()
                                               })
@@ -283,42 +329,28 @@ class Schema:
 
 class Transform:
 
-    def __init__(self, colnum):
-        self.colnum = colnum
-        self.pattern = None
-        self.components = list()
-        self.imports = list()
-        self.new_col_names = list()
-        self.preview = None
+    def __init__(self, colnum, pat_definition_rpl):
+        assert(isinstance(colnum, int))
+        self._colnum = colnum
+        self._pattern = Pattern(None, pat_definition_rpl)
+        self.components = None  # list of patterns
+        self.imports = None
 
-    def extract_imports(self, pattern):
-        pass
-
-    def extract_components(self, pattern):
-        self.pattern = pattern
-        self.components = [Pattern("p1"), Pattern("p2")]
-
-    def generate_rpl(self, component_list = None):
-        if not component_list: component_list = self.components
-        rpl = ""
-        for p in component_list:
-            if p.definition:
-                rpl = rpl + p.name + "=" + p.definition + ";"
+    def generate_rpl(self):
+        rpl = b''
+        for pat in self.components:
+            if pat._definition:
+                rpl = rpl + pat._name + b'=' + pat._definition + b';\n'
         return rpl
-        
-    def define_pattern(self, index, pattern):
-        self.components[index].definition = pattern
-
-#     def create_sample_data(self):
-#         self.new_col_names = ["p1", "p2"]
-#         self.preview = [["c1r1","c2r1"],["c1r2","c2r2"]]
 
 class Pattern:
 
-    def __init__(self, name):
-        self.name = name
-        self.definition = None
+    def __init__(self, name, definition):
+        self._name = bytes23(name) if name else None
+        self._definition = bytes23(definition) if definition else definition
         self.compiled = None
+        self.refs = None
+        self.deps = None
         self.errors = None
 
 # ------------------------------------------------------------------

@@ -1,7 +1,7 @@
 #  -*- Mode: Python; -*-                                              
 #  -*- coding: utf-8; -*-
 # 
-#  matcher.py
+#  rosie_matcher.py
 # 
 #  © Copyright IBM Corporation 2018.
 #  LICENSE: MIT License (https://opensource.org/licenses/mit-license.html)
@@ -68,11 +68,12 @@ class Matcher():
             return json.loads(data)
         raise RuntimeError("pattern 'all' failed to match: " + raw_data)
 
-    def compile(self, pattern_name, optional_rpl = None):
-        if optional_rpl: self.engine.load(bytes23(optional_rpl))
-        pat, errs = self.engine.compile(bytes23(pattern_name))
+    def compile(self, expression, optional_rpl = None):
+        if optional_rpl:
+            self.engine.load(bytes23(optional_rpl))
+        pat, errs = self.engine.compile(bytes23(expression))
         if not pat:
-            raise RuntimeError("pattern '" + pattern_name + "' failed to compile: " + errs)
+            raise RuntimeError("expression failed to compile: " + repr(errs))
         return pat
 
     def match(self, compiled_pattern, raw_data):
@@ -82,6 +83,7 @@ class Matcher():
         return None
 
     def extract(self, match_result, component_name):
+        component_name = str23(component_name)
         if not match_result: return None
         if (match_result['type'] == component_name):
             return match_result['data']
@@ -91,3 +93,22 @@ class Matcher():
                 if found: return found
         return None
 
+    def expression_refs(self, expression):
+        refs, errs = self.engine.expression_refs(expression)
+        if refs:
+            return json.loads(refs), errs
+        elif errs:
+            return refs, json.loads(errs)
+        else:
+            return None, None
+
+    def expression_deps(self, expression):
+        deps, errs = self.engine.expression_deps(expression)
+        if deps:
+            return json.loads(deps), errs
+        elif errs:
+            return deps, json.loads(errs)
+        else:
+            return None, None
+
+    

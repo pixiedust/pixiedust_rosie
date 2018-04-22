@@ -53,21 +53,17 @@ def test():
     classify_data.print_ambiguously_typed_columns(s)
 
 
-    print()
-    print(s.colnames)
-    print(s.rosie_types)
-    print(s.native_types)
+    if False:
+        print()
+        print("Sample data with visible columns only")
+        for row in s.sample_data:
+            visible = [datum for i, datum in enumerate(row) if s.column_visibility[i]]
+            print(visible)
 
-    print()
-    print("Sample data with visible columns only")
-    for row in s.sample_data:
-        visible = [datum for i, datum in enumerate(row) if s.column_visibility[i]]
-        print(visible)
-
-    for c in range(0, s.cols):
-        data, errs = s.convert(c)
-        print(c, data)
-        print(c, "rows that failed:", errs)
+        for c in range(0, s.cols):
+            data, errs = s.convert(c)
+            print(c, data)
+            print(c, "rows that failed:", errs)
 
     print()
     print("Now we change the native type of column 0 to float:")
@@ -81,12 +77,17 @@ def test():
 
     print()
     print("Make a new column based on column 26 to extract the numeric part:")
-    tr1 = classify_data.Transform(26)
-    tr1.pattern = '{[^0-9]* n}'
-    pat_n = classify_data.Pattern('n')
-    pat_n.definition = '[0-9]*'
-    tr1.components.append(pat_n)
-    print('***', tr1)
+    tr1 = classify_data.Transform(26, '{[^0-9]* n}')
+    s.set_transform_components(tr1)
+    assert(len(tr1.components) == 1)
+    pat = tr1.components[0]
+    assert(pat._name == b'n')
+    assert(pat._definition is None)
+    pat._definition = b'[0-9]*'
+    s.set_transform_imports(tr1)
+    print('*** pattern:', tr1._pattern._definition)
+    print('*** components:', map23(lambda c: (c._name, c._definition), tr1.components))
+    print('*** imports:', tr1.imports)
     new = s.new_columns(tr1)
     print(new)
 
@@ -95,11 +96,19 @@ def test():
     print()
     print("Make TWO new columns based on column 26 to extract the alpha prefix and the numeric part:")
 
-    tr2 = classify_data.Transform(26)
-    tr2.pattern = '{prefix num.int}'
-    tr2.components = [classify_data.Pattern('prefix'), classify_data.Pattern('num.int')]
-    tr2.components[0].definition = '[A-Z]+'
-    tr2.imports.append('num')
+    tr2 = classify_data.Transform(26, '{prefix num.int}')
+    s.set_transform_components(tr2)
+    assert(len(tr2.components) == 2)
+    for c in tr2.components:
+        print(c._name, c._definition)
+    pat = tr2.components[0]
+    assert(pat._name == b'prefix')
+    assert(pat._definition is None)
+    pat._definition = b'[A-Z]+'
+    s.set_transform_imports(tr2)
+    print('*** pattern:', tr2._pattern._definition)
+    print('*** components:', map23(lambda c: (c._name, c._definition), tr2.components))
+    print('*** imports:', tr2.imports)
     
     new = s.new_columns(tr2)
     print(new)

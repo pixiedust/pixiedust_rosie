@@ -20,8 +20,20 @@ try:
     map23 = map
 except NameError:
     HAS_UNICODE_TYPE = False
-    str23 = lambda s: str(s, encoding='UTF-8')
-    bytes23 = lambda s: bytes(s, encoding='UTF-8')
+    def bytes23(s):
+        if isinstance(s, str):
+            return bytes(s, encoding='UTF-8')
+        elif isinstance(s, bytes):
+            return s
+        else:
+            raise ValueError('obj not str or bytes: ' + repr(type(s)))
+    def str23(s):
+        if isinstance(s, str):
+            return s
+        elif isinstance(s, bytes):
+            return str(s, encoding='UTF-8')
+        else:
+            raise ValueError('obj not str or bytes: ' + repr(type(s)))
     def zip23(*args):
         return list(zip(*args))
     def map23(fn, *args):
