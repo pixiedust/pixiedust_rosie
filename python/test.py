@@ -71,43 +71,56 @@ def test():
     print(0, s.convert(0))
 
     print()
-    print("Now we change the native type of column 11 to complex:")
+    print("Now we change the native type of column 11 to complex: (it should fail)")
     s.set_native_type(11, complex)
     print(11, s.convert(11, '*FAIL*'))
 
     print()
     print("Make a new column based on column 26 to extract the numeric part:")
-    tr1 = classify_data.Transform(26, '{[^0-9]* n}')
-    s.set_transform_components(tr1)
+    tr1 = classify_data.Transform(26)
+    new = s.new_columns(tr1)
+    assert( new is False )
+    assert( 'pattern' in tr1.errors ) # Please enter a pattern
+
+    tr1._pattern = classify_data.Pattern(None, '{[^0-9]* n}')
+    new = s.new_columns(tr1)
+    assert( new is False )
+    assert( 'pattern' in tr1.errors ) # Please enter a pattern
+
     assert(len(tr1.components) == 1)
     pat = tr1.components[0]
     assert(pat._name == b'n')
     assert(pat._definition is None)
     pat._definition = b'[0-9]*'
-    s.set_transform_imports(tr1)
-    print('*** pattern:', tr1._pattern._definition)
-    print('*** components:', map23(lambda c: (c._name, c._definition), tr1.components))
-    print('*** imports:', tr1.imports)
-    new = s.new_columns(tr1)
-    print(new)
 
+    new = s.new_columns(tr1)
+    assert( new )
+    assert( tr1.errors == None )
+    # print('*** pattern:', tr1._pattern._definition)
+    # print('*** components:', map23(lambda c: (c._name, c._definition), tr1.components))
+    # print('*** imports:', tr1.imports)
+
+    print(new)
 
 # ---------------------------------------------------------------------------------------------------
     print()
     print("Make TWO new columns based on column 26 to extract the alpha prefix and the numeric part:")
 
     tr2 = classify_data.Transform(26, '{prefix num.int}')
-    s.set_transform_components(tr2)
+    new = s.new_columns(tr2)
+    assert( new is False )
+    assert( 'pattern' in tr2.errors )
+    
     assert(len(tr2.components) == 2)
-    for c in tr2.components:
-        print(c._name, c._definition)
     pat = tr2.components[0]
     assert(pat._name == b'prefix')
     assert(pat._definition is None)
     pat._definition = b'[A-Z]+'
-#    s.set_transform_imports(tr2)
-    new = s.new_columns(tr2)
 
+    new = s.new_columns(tr2)
+    print(tr2.errors)
+    assert( new )
+    assert( tr2.errors is None )
 
     print('*** pattern:', tr2._pattern._definition)
     print('*** components:', map23(lambda c: (c._name, c._definition), tr2.components))

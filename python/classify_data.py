@@ -15,6 +15,34 @@ import sys, os, json, rosie_matcher
 from adapt23 import *
 
 # ------------------------------------------------------------------
+# Error messages
+#
+
+error_no_pattern = 'Please enter a pattern to apply to the column'
+error_empty_expression = 'Please enter a pattern expression'
+
+def error_syntax(rosie_errs):
+    # TODO: pretty printing of errs
+    return "Syntax error in pattern:\n" + repr(rosie_errs)
+
+def error_parsing(rosie_errs):
+    # TODO: pretty printing of errs
+    return "Error parsing expression:\n" + repr(rosie_errs)
+
+def error_missing_dependency(pkgname, rosie_errs):
+    # TODO: pretty printing of errs
+    return "Cannot find RPL pattern package {}:\n{}".format(pkgname, repr(rosie_errs))
+
+def error_compiling(rosie_errs):
+    # TODO: pretty printing of errs
+    return "Pattern failed to compile: " + repr(rosie_errs)
+
+def error_loading_rpl(rosie_errs):
+    # TODO: pretty printing of errs
+    return "Patterns failed to load: " + repr(rosie_errs)
+
+
+# ------------------------------------------------------------------
 # Utility functions
 #
 
@@ -161,46 +189,87 @@ class Schema:
     #
     def set_transform_components(self, transformer):
         if (not transformer._pattern) or (not transformer._pattern._definition):
-            raise ValueError('Transformer has no pattern definition')
+            transformer.errors = error_no_pattern
+            return False
         refs, errs = self.matcher.expression_refs(transformer._pattern._definition)
         if (not refs) and errs:
-            raise RuntimeError("syntax error in pattern: " + repr(errs))
+            transformer.errors = error_syntax(errs)
+            return False
         name_tuples = map23(ref_to_name, refs)
         needing_definitions = set(map23(lambda t: t[0], filter(lambda t: not t[1], name_tuples)))
         not_needing_definitions = set(map23(lambda t: t[0], filter(lambda t: t[1], name_tuples)))
-        transformer.components = map23(lambda name: Pattern(name, None), needing_definitions)
-        transformer.components.extend(map23(lambda name: Pattern(name, False), not_needing_definitions))
-        
+        new_components = map23(lambda name: Pattern(name, None), needing_definitions)
+        new_components.extend(map23(lambda name: Pattern(name, False), not_needing_definitions))
+        if transformer.components:
+            for c in new_components:
+                existing = False
+                for pat in transformer.components:
+                    if pat._name == c._name:
+                        existing = pat
+                        break
+                if existing:
+                    c._definition = existing._definition
+        transformer.components = new_components
+        return True
+    
     # ------------------------------------------------------------------
     # Compute and set the dependencies in all of a transformer patterns
     #
     def find_imports(self, expression):
         if not expression:
-            raise ValueError('cannot find dependencies of null expression')
+            return RuntimeError(error_empty_expression)
         imports, errs = self.matcher.expression_deps(expression)
         if (not imports) and errs:
-            raise RuntimeError("error finding dependencies in expression: " + repr(errs))
+            return RuntimeError(error_parsing(errs))
         return imports or list()
 
     def set_transform_imports(self, transformer):
-        if (not transformer._pattern) or (not transformer._pattern._definition):
-            raise ValueError('Transformer has no pattern')
-        transformer.imports = self.find_imports(transformer._pattern._definition)
+        imports = self.find_imports(transformer._pattern._definition)
+        if isinstance(imports, RuntimeError):
+            transformer.errors = str(imports)
+            return False
+        transformer.imports = imports
+        final_status = True
         for pat in transformer.components:
             if pat._definition is not False:
-                transformer.imports.extend(self.find_imports(pat._definition))
-        return transformer.imports
+                imports = self.find_imports(pat._definition)
+                if isinstance(imports, RuntimeError):
+                    if transformer.errors:
+                        transformer.errors = transformer.errors  + '\n' + str(imports)
+                    else:
+                        transformer.errors = str(imports)
+                    final_status = False
+                else:
+                    if imports: transformer.imports.extend(imports) 
+        return final_status
 
     # ------------------------------------------------------------------
-    # Create column(s) via a Rosie pattern applied to an existing column
+    # Create column(s) via a Rosie pattern applied to an existing
+    # column.  Return the new columns, without adding them into the
+    # Schema.  To change the Schema to include them, use
+    # commit_new_columns.
     #
     def new_columns(self, transformer):
-        if transformer.components is None:
-            raise ValueError('Transformer components not set')
-        self.set_transform_imports(transformer)
-        for pkg in transformer.imports:
-            self.matcher.import_pkg(pkg)
-        pat = self.matcher.compile(transformer._pattern._definition, transformer.generate_rpl())
+        transformer.errors = None
+        if not self.set_transform_components(transformer):
+            return False
+        if not self.set_transform_imports(transformer):
+            return False
+        if transformer.imports:
+            for pkg in transformer.imports:
+                ok, _, errs = self.matcher.engine.import_pkg(bytes23(pkg))
+                if not ok:
+                    transform.errors = error_missing_dependency(pkg, errs)
+        optional_rpl = transformer.generate_rpl()
+        if optional_rpl:
+            ok, _, errs = self.matcher.engine.load(bytes23(optional_rpl))
+            if not ok:
+                transformer.errors = error_loading_rpl(errs)
+                return False
+        pat, errs = self.matcher.engine.compile(bytes23(transformer._pattern._definition))
+        if not pat:
+            transformer.errors = error_compiling(errs)
+            return False
         colnum = transformer._colnum
         component_names = map23(lambda c: str23(c._name), transformer.components)
         newcols = list(map23(lambda cn: list(), component_names))
@@ -213,6 +282,7 @@ class Schema:
 
     def commit_new_columns(self, transformer):
         newcols = self.new_columns(transformer)
+        if not newcols: return False
         self.cols += len(transformer.components)
         for i, component in enumerate(transformer.components):
             newcolnum = transformer._colnum + i + 1
