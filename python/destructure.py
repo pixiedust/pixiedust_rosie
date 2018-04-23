@@ -1,5 +1,35 @@
 #  -*- coding: utf-8; -*-
-rpl = '''
+#  -*- Mode: Python; -*-                                              
+# 
+#  destructure.py
+# 
+#  © Copyright IBM Corporation 2018.
+#  LICENSE: MIT License (https://opensource.org/licenses/mit-license.html)
+#  AUTHOR: Jamie A. Jennings
+
+from __future__ import unicode_literals, print_function
+from adapt23 import *
+import rosie_matcher
+
+separators = set({'comma', 'semicolon', 'dash', 'slash', 'find.*'})
+
+def fields(match_subs):
+    return list(map(lambda s: s['data'],
+                    [ sub for sub in match_subs
+                      if (sub['type'] not in separators and (sub['type'] != 'rest' or sub['data'] != '')) ] ))
+
+def compile(matcher):
+    assert( isinstance(matcher, rosie_matcher.Matcher) )
+    matcher.load(rpl)
+    return matcher.compile('destructure.tryall')
+
+def match(pat, matcher, datum):
+    m = matcher.match(pat, datum.strip())
+    if not m: return None
+    key = rosie_matcher.most_specific(m)
+    return key, key['subs']
+
+rpl = b'''
 -- -*- Mode: rpl; -*-                                                                                   
 --
 -- destructure.rpl
