@@ -105,12 +105,15 @@ def test():
     assert(pat._name == b'prefix')
     assert(pat._definition is None)
     pat._definition = b'[A-Z]+'
-    s.set_transform_imports(tr2)
+#    s.set_transform_imports(tr2)
+    new = s.new_columns(tr2)
+
+
     print('*** pattern:', tr2._pattern._definition)
     print('*** components:', map23(lambda c: (c._name, c._definition), tr2.components))
     print('*** imports:', tr2.imports)
     
-    new = s.new_columns(tr2)
+
     print(new)
 
     print()

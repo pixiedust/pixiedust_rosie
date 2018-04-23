@@ -170,7 +170,6 @@ class Schema:
         not_needing_definitions = set(map23(lambda t: t[0], filter(lambda t: t[1], name_tuples)))
         transformer.components = map23(lambda name: Pattern(name, None), needing_definitions)
         transformer.components.extend(map23(lambda name: Pattern(name, False), not_needing_definitions))
-        return needing_definitions
         
     # ------------------------------------------------------------------
     # Compute and set the dependencies in all of a transformer patterns
@@ -198,8 +197,7 @@ class Schema:
     def new_columns(self, transformer):
         if transformer.components is None:
             raise ValueError('Transformer components not set')
-        if transformer.imports is None:
-            raise ValueError('Transformer imports not set')
+        self.set_transform_imports(transformer)
         for pkg in transformer.imports:
             self.matcher.import_pkg(pkg)
         pat = self.matcher.compile(transformer._pattern._definition, transformer.generate_rpl())
@@ -329,12 +327,13 @@ class Schema:
 
 class Transform:
 
-    def __init__(self, colnum, pat_definition_rpl):
+    def __init__(self, colnum, pat_definition_rpl=None):
         assert(isinstance(colnum, int))
         self._colnum = colnum
         self._pattern = Pattern(None, pat_definition_rpl)
         self.components = None  # list of patterns
         self.imports = None
+        self.errors = None
 
     def generate_rpl(self):
         rpl = b''
@@ -345,13 +344,9 @@ class Transform:
 
 class Pattern:
 
-    def __init__(self, name, definition):
+    def __init__(self, name, definition=None):
         self._name = bytes23(name) if name else None
         self._definition = bytes23(definition) if definition else definition
-        self.compiled = None
-        self.refs = None
-        self.deps = None
-        self.errors = None
 
 # ------------------------------------------------------------------
 # Map the rosie types to pandas scalar type
