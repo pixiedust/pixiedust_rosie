@@ -11,7 +11,7 @@
 
 from __future__ import unicode_literals, print_function
 
-import sys, os, json, rosie_matcher
+import sys, os, json, rosie_matcher, destructure
 from adapt23 import *
 
 # ------------------------------------------------------------------
@@ -111,7 +111,19 @@ class Schema:
         self.column_visibility = None     # list of booleans, True=visible
         self.type_map = default_type_map.copy()
         self.transform = None
+        self._infer = None
 
+    # ------------------------------------------------------------------
+    # Process
+    #
+    def get_column(self, colnum):
+        if not self.sample_data:
+            return None, RuntimeError('no sample data loaded')
+        cols = zip23(*(self.sample_data))
+        if (colnum < 0) or (colnum > len(cols)):
+            return None, RuntimeError('column number out of range')
+        return cols[colnum], None
+    
     # ------------------------------------------------------------------
     # Process
     #
@@ -251,15 +263,16 @@ class Schema:
     #
     def new_columns(self, transformer):
         transformer.errors = None
-        if not self.set_transform_components(transformer):
-            return False
+        if not transformer.destructuring:
+            if not self.set_transform_components(transformer):
+                return False
         if not self.set_transform_imports(transformer):
             return False
         if transformer.imports:
             for pkg in transformer.imports:
-                ok, _, errs = self.matcher.engine.import_pkg(bytes23(pkg))
+                ok, _, errs = self.matcher.engine.load(bytes23('import ' + pkg))
                 if not ok:
-                    transform.errors = error_missing_dependency(pkg, errs)
+                    transformer.errors = error_missing_dependency(pkg, errs)
         optional_rpl = transformer.generate_rpl()
         if optional_rpl:
             ok, _, errs = self.matcher.engine.load(bytes23(optional_rpl))
@@ -276,7 +289,11 @@ class Schema:
         for rownum, row in enumerate(self.sample_data):
             m = self.matcher.match(pat, row[colnum])
             for compnum, cn in enumerate(component_names):
-                datum = self.matcher.extract(m, cn)
+                if transformer.destructuring:
+                    #print('*** destructuring and component names are:', component_names)
+                    datum = m['subs'][compnum]['data']
+                else:
+                    datum = self.matcher.extract(m, cn)
                 newcols[compnum].append(datum)
         return newcols
 
@@ -384,11 +401,25 @@ class Schema:
     def create_schema_table(self):
         return zip23(self.column_visibility, self.colnames, self.rosie_types, self.native_types)
 
-    def rename_column(self,colnum, new_name):
+    def rename_column(self, colnum, new_name):
         self.colnames[colnum] = new_name
 
-    def create_transform(self, colnum):
-        self.transform = Transform(colnum)
+    def suggest_destructuring(self, colnum):
+        self._infer = self._infer or destructure.finder(self.matcher)
+        if isinstance(self._infer, Exception):
+            return False, self._infer
+        column_data, err = self.get_column(colnum)
+        if not column_data:
+            return False, err
+        pattern_definition, fields = self._infer.from_datum(column_data[0])
+        if not pattern_definition:
+            return None, None
+        if not fields:
+            return None, None
+        tr = Transform(colnum, pattern_definition)
+        tr.destructuring = True
+        tr.components = map23(lambda name: Pattern(name, False), fields)
+        return tr, None
 
 # ------------------------------------------------------------------
 # Transform: Everything needed to transform a column of data into one
@@ -404,6 +435,7 @@ class Transform:
         self.components = None  # list of patterns
         self.imports = None
         self.errors = None
+        self.destructuring = False
 
     def generate_rpl(self):
         rpl = b''

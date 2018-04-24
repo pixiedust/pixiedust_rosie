@@ -11,30 +11,47 @@ from __future__ import unicode_literals, print_function
 from adapt23 import *
 import rosie_matcher
 
-separators = set({'comma', 'semicolon', 'dash', 'slash', 'find.*'})
+class finder():
 
-def fields(match_subs):
-    return list(map(lambda s: s['data'],
-                    [ sub for sub in match_subs
-                      if (sub['type'] not in separators and (sub['type'] != 'rest' or sub['data'] != '')) ] ))
+    _separators = set({'comma', 'semicolon', 'dash', 'slash', 'find.*'})
+    _matcher = None
+    _tryall = None
 
-def compile(matcher):
-    assert( isinstance(matcher, rosie_matcher.Matcher) )
-    matcher.load(rpl)
-    return matcher.compile('destructure.tryall')
+    def __init__(self, matcher):
+        # assert( isinstance(matcher, rosie_matcher.Matcher) )
+        self._matcher = matcher
+        try:
+            matcher.load(_rpl)
+            self._tryall = matcher.compile('destructure.tryall')
+        except Exception as e:
+            return e
 
-def match(pat, matcher, datum):
-    m = matcher.match(pat, datum.strip())
-    if not m: return None
-    key = rosie_matcher.most_specific(m)
-    return key, key['subs']
+    def from_datum(self, datum):
+        m = self._matcher.match(self._tryall, datum.strip())
+        if not m: return None, None
+        key = rosie_matcher.most_specific(m)
+        pattern_definition = bytes23('destructure.' + key['type'])
+        if not key['subs']:
+            component_names = list()
+        else:
+            component_names = map23(lambda sub: sub['type'], key['subs'])
+            # HACK?  Need to think about what we want to do for 'rest' of the data.
+            component_names = filter(lambda name: name != 'rest', component_names)
+        return pattern_definition, component_names
 
-rpl = b'''
+    def fields(self, submatches):
+        if not submatches: return list()
+        return list(map(lambda s: s['data'],
+                        [ sub for sub in submatches
+                          if (sub['type'] not in self._separators and (sub['type'] != 'rest' or sub['data'] != '')) ] ))
+
+
+_rpl = b'''
 -- -*- Mode: rpl; -*-                                                                                   
 --
 -- destructure.rpl
 --
--- © Copyright Jamie A. Jennings 2018.
+-- (C) Copyright Jamie A. Jennings 2018.
 -- LICENSE: MIT License (https://opensource.org/licenses/mit-license.html)
 -- AUTHOR: Jamie A. Jennings
 

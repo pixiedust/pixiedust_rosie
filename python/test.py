@@ -3,7 +3,7 @@
 
 from __future__ import unicode_literals, print_function
 
-import sys, json, rosie, rosie_matcher, classify_data
+import sys, json, rosie, rosie_matcher, classify_data, destructure
 from adapt23 import *
 
 # ------------------------------------------------------------------
@@ -118,7 +118,6 @@ def test():
     pat._definition = b'[A-Z]+'
 
     new = s.new_columns(tr2)
-    print(tr2.errors)
     assert( new )
     assert( tr2.errors is None )
 
@@ -138,7 +137,50 @@ def test():
 
     s.set_native_type(28, lambda x: "foo"+str(int(x)))
     classify_data.print_sample_data_verbosely(s, 0)
+
 # ---------------------------------------------------------------------------------------------------
+    print()
+    print("Let's try to INFER a destructing for column 20")
+
+    tr3, err = s.suggest_destructuring(20)
+    assert( not tr3 )
+    assert( not err )
+    print('No suggested destructuring found, which was expected.')
+    
+
+# ---------------------------------------------------------------------------------------------------
+    print()
+    print("Let's try to INFER a destructing for column 25")
+
+    tr3, err = s.suggest_destructuring(25)
+    
+    #print(map23(lambda c: c._name, tr3.components), tr3._pattern._definition[0:12])
+    
+    new = s.new_columns(tr3)
+
+    assert( new )
+    assert( tr3.errors is None )
+
+    print('*** pattern:', tr3._pattern._definition)
+    print('*** components:', map23(lambda c: (c._name, c._definition), tr3.components))
+    print('*** imports:', tr3.imports)
+
+    print(new)
+    
+    print()
+    print("COMMIT the two cols above:")
+
+    s.commit_new_columns(tr3)
+    classify_data.print_sample_data_verbosely(s, 0)
+    
+
+
+# ---------------------------------------------------------------------------------------------------
+
+
+
+
+
 
 test()
 
