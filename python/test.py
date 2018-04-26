@@ -41,8 +41,9 @@ def test():
     print()
 
     print()
-    print("For demonstration purposes, we will delete columns 4 and 22-end...")
-    s.hide_column(4)
+    print("For demonstration purposes, we will delete columns 4-6 and 22-end...")
+    for i in range(4, 8):
+        s.hide_column(i)
     for i in range(22, s.cols):
         s.hide_column(i)
 
@@ -104,7 +105,7 @@ def test():
 
 # ---------------------------------------------------------------------------------------------------
     print()
-    print("Make TWO new columns based on column 26 to extract the alpha prefix and the numeric part:")
+    print("Make ONE new column from column 26 with the alpha part when it has the form 'OVR01':")
 
     tr2 = classify_data.Transform(26, '{prefix num.int}')
     new = s.new_columns(tr2)
@@ -128,15 +129,6 @@ def test():
 
     print(new)
 
-    print()
-    print("COMMIT the two cols above:")
-
-    s.commit_new_columns(tr2)
-
-    # '{prefix BreakOutCode}', ['prefix', 'BreakOutCode'], 'import num; BreakOutCode=num.int; prefix=[A-Z]+')
-
-    s.set_native_type(28, lambda x: "foo"+str(int(x)))
-    classify_data.print_sample_data_verbosely(s, 0)
 
 # -----------------------------------------------------------------------------
     print()
@@ -219,10 +211,6 @@ def test():
     print(new)
 
 # ---------------------------------------------------------------------------------------------------
-
-    sys.exit(0)
-    
-# ---------------------------------------------------------------------------------------------------
     print()
     print("Let's try to INFER a destructing for column 20")
 
@@ -234,11 +222,9 @@ def test():
 
 # ---------------------------------------------------------------------------------------------------
     print()
-    print("Let's try to INFER a destructing for column 25")
+    print("Let's try to INFER a destructing for column 26")
 
-    tr3, err = s.suggest_destructuring(25)
-    
-    #print(map23(lambda c: c._name, tr3.components), tr3._pattern._definition[0:12])
+    tr3, err = s.suggest_destructuring(26)
     
     new = s.new_columns(tr3)
 
@@ -255,11 +241,30 @@ def test():
     print("COMMIT the two cols above:")
 
     s.commit_new_columns(tr3)
+
+    # And we will make visible again the original column, 26, so we
+    # can see in the final output that the destructuring worked
+    # correctly:
+    s.unhide_column(26)
+
+    # Print to console
     classify_data.print_sample_data_verbosely(s, 0)
+
+    filename, err = s.process_file()
+    if not filename:
+        print("Error generating output file!  Details:")
+        print(err)
+    else:
+        print(filename)
+
+    # Can only commit once without resetting
+    
+    sys.exit(0)
     
 
 
 # ---------------------------------------------------------------------------------------------------
+
 
 
 

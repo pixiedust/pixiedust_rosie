@@ -11,7 +11,8 @@
 
 from __future__ import unicode_literals, print_function
 
-import sys, os, json, rosie_matcher, destructure
+import rosie_matcher, destructure
+import sys, os, json, tempfile, csv
 from adapt23 import *
 
 # ------------------------------------------------------------------
@@ -68,6 +69,10 @@ def potentially_unbound(ref):
     return ( (not 'packagename' in ref) and
              (not rosie_matcher.builtin(ref['localname'])) )
 
+def apply_visibility(data, visibility_mask):
+    temp = zip23(data, visibility_mask)
+    return map23(lambda p: p[0], filter(lambda p: p[1], temp))
+
 # ------------------------------------------------------------------
 # Schema column types that are not strings
 #
@@ -117,7 +122,7 @@ class Schema:
         self.inconsistent_rows = None     # list of (rownum, rowdata) tuples
         self.column_visibility = None     # list of booleans, True=visible
         self.type_map = default_type_map.copy()
-        self.transform = None
+        self.transformer = None           # Future: this should be an ordered list
         self._infer = None
 
     # ------------------------------------------------------------------
@@ -141,7 +146,7 @@ class Schema:
         self.set_number_of_cols()
         assert(self.cols)
         self.rectangularize()
-        self.generate_rosie_types()
+        self.generate_rosie_types_for_sample_data()
         assert(self.sample_data_types)
         self.resolve_type_ambiguities()
         assert(len(self.rosie_types)==self.cols)
@@ -150,24 +155,76 @@ class Schema:
         self.synthetic_column = [False for _ in self.colnames]
 
     # ------------------------------------------------------------------
+    # For csv only
+    #
+    def line_to_list(self, line):
+        csv = self.matcher.csv(line)
+        row = list()
+        for item in csv['subs']:
+            if 'subs' in item:
+                datum = item['subs'][0]['data']
+            else:
+                datum = item['data']
+            row.append(datum or None)
+        return row
+
+    # ------------------------------------------------------------------
     # Load sample data from file
     #
     def load_sample_data(self):
-        f = open(self.filename)
-        csv = self.matcher.csv(f.readline())
+        try:
+            f = open(self.filename)
+        except Exception as e:
+            return False, str(e)
+        try:
+            csv = self.matcher.csv(f.readline())
+        except Exception as e:
+            return False, str(e)
         self.colnames = list(map23(lambda sub: sub['data'].rstrip(), csv['subs']))
         self.sample_data = list()
         for i in range(self.samplesize):
             rowstring = f.readline().rstrip()
-            csv = self.matcher.csv(rowstring)
-            row = list()
-            for item in csv['subs']:
-                if 'subs' in item:
-                    datum = item['subs'][0]['data']
-                else:
-                    datum = item['data']
-                row.append(datum or None)
+            row = self.line_to_list(rowstring)
             self.sample_data.append(row)
+        f.close()
+        return True, None
+
+    # ------------------------------------------------------------------
+    # Process entire file, writing a new file
+    #
+    def process_file(self):
+        if (not self.transformer) or (not self.matcher) or (not self.filename):
+            return False, "Cannot process file until analysis of sample data is run"
+        if self.transformer.errors:
+            return False, "There are transformer errors:\n" + str(self.transformer.errors)
+        pat, errs = self.matcher.engine.compile(bytes23(self.transformer._pattern._definition))
+        component_names = map23(lambda c: str23(c._name), self.transformer.components)
+        if not pat:
+            return False, "Error compiling pattern:\n" + str(errs)
+        try:
+            fin = open(self.filename, newline='')
+        except Exception as e:
+            return False, "Could not open input file:\n" + str(e)
+        try:
+            tempdir = tempfile.gettempdir()
+            pathname = os.path.join(tempdir, "wrangled_" + os.path.basename(self.filename))
+            fout = open(pathname, mode='w+t', newline='') # write, truncate, text mode
+        except Exception as e:
+            return False, "Could not open output file:\n" + str(e)
+        writer = csv.writer(fout)
+        assert(self.rosie_types and self.native_types and self.column_visibility)
+        # Skip reading the col names, which we already have
+        fin.readline()
+        # Write the column names
+        writer.writerow(apply_visibility(self.colnames, self.column_visibility))
+        for line in fin:
+            row = self.line_to_list(line)
+            # Future: apply list of transformers in order
+            self.add_columns_to_row(row, pat, component_names)
+            assert(len(row) == len(self.column_visibility))
+            writer.writerow(apply_visibility(row, self.column_visibility))
+        fout.close()
+        return pathname, None
 
     # ------------------------------------------------------------------
     # We can be smarter about this in the future
@@ -196,6 +253,9 @@ class Schema:
     #
     def hide_column(self, colnum):
         self.column_visibility[colnum] = False
+
+    def unhide_column(self, colnum):
+        self.column_visibility[colnum] = True
 
     # ------------------------------------------------------------------
     # Change column's native type assignment
@@ -274,11 +334,26 @@ class Schema:
         return final_status
 
     # ------------------------------------------------------------------
+    # Insert column(s) into a row using self.transform to create them.
+    # Return the new row, and make no changes to sample data, etc.
+
+    def add_columns_to_row(self, row, pat, component_names):
+        colnum = self.transformer._colnum
+        original_datum = row[colnum]
+        m = self.matcher.match(pat, original_datum)
+        for cnum, cn in enumerate(component_names):
+            if self.transformer.destructuring:
+                new_datum = m['subs'][cnum]['data']
+            else:
+                new_datum = self.matcher.extract(m, cn)
+            row.insert(colnum + cnum + 1, new_datum)
+        
+    # ------------------------------------------------------------------
     # Create column(s) via a Rosie pattern applied to an existing
     # column.  Return the new columns, without adding them into the
     # Schema.  To change the Schema to include them, use
     # commit_new_columns.
-    #
+
     def new_columns(self, transformer):
         transformer.errors = None
         if not transformer.destructuring:
@@ -316,6 +391,11 @@ class Schema:
         return newcols
 
     def commit_new_columns(self, transformer):
+        # BUG: Can only commit once, unless you want to start over, in
+        # which case you must reset everything in your schema object,
+        # including sample data.  To start over after a commit, you
+        # should *really* start over by creating a new schema object.
+        self.transformer = transformer
         newcols = self.new_columns(transformer)
         if not newcols: return False
         self.cols += len(transformer.components)
@@ -355,24 +435,33 @@ class Schema:
                 del(self.sample_data[i])
 
     # ------------------------------------------------------------------
+    # Calculate rosie types for a row
+    #
+    def calculate_rosie_types(self, row):
+        rosie_types = list()
+        for col in row:
+            if not col:
+                # No data in this field
+                best_match_type = Schema_empty_type
+            else:
+                m = self.matcher.all(col)
+                best = most_specific(m)
+                if best['type'] == 'all.things':
+                    best_match_type = Schema_record_type(list(map23(lambda s: s['subs'][0]['type'], best['subs'])))
+                else:
+                    best_match_type = best['type']
+            rosie_types.append(best_match_type)
+        assert( len(rosie_types) == len(row) )
+        return rosie_types
+
+    # ------------------------------------------------------------------
     # Create (or overwrite) self.sample_data_types
     #
-    def generate_rosie_types(self):
+    def generate_rosie_types_for_sample_data(self):
         self.sample_data_types = list()
         for i, row in enumerate(self.sample_data):
-            self.sample_data_types.append(list())
-            for col in row:
-                if not col:
-                    # No data in this field
-                    self.sample_data_types[i].append(Schema_empty_type)
-                else:
-                    m = self.matcher.all(col)
-                    best = most_specific(m)
-                    if best['type'] == 'all.things':
-                        best_match_type = Schema_record_type(list(map23(lambda s: s['subs'][0]['type'], best['subs'])))
-                    else:
-                        best_match_type = best['type']
-                    self.sample_data_types[i].append(best_match_type)
+            best_types = self.calculate_rosie_types(row)
+            self.sample_data_types.append(best_types)
 
     # ------------------------------------------------------------------
     # Find ambiguous Rosie types within the sample data, and change
