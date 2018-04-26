@@ -1,8 +1,8 @@
-#  -*- Mode: Python; -*-                                              
+#  -*- Mode: Python; -*-
 #  -*- coding: utf-8; -*-
-# 
+#
 #  rosie_matcher.py
-# 
+#
 #  © Copyright IBM Corporation 2018.
 #  LICENSE: MIT License (https://opensource.org/licenses/mit-license.html)
 #  AUTHOR: Jamie A. Jennings
@@ -23,7 +23,7 @@ def most_specific(match):
         if len(subs) > 1: return match
         match = subs[0]
     return match
-        
+
 # ------------------------------------------------------------------
 # Rosie matching functions
 #
@@ -45,17 +45,17 @@ class Matcher():
         ok, _, messages = self.engine.import_pkg(bytes23(pkgname))
         if not ok:
             raise RuntimeError("RPL package {} failed to load:\n{}".format(pkgname, messages))
-        
+
     def loadfile(self, filename):
         ok, _, messages = self.engine.loadfile(bytes23(filename))
         if not ok:
             raise RuntimeError("file {} failed to load:\n{}".format(filename, messages))
-        
+
     def load(self, rpl_block):
         ok, _, messages = self.engine.load(bytes23(rpl_block))
         if not ok:
             raise RuntimeError("rpl code block ({}...) failed to load:\n{}".format(rpl_block[:20], messages))
-        
+
     def csv(self, raw_data):
         data, leftover, abend, t0, t1 = self.engine.match(self.csv_pattern, bytes23(raw_data), 1, b"json")
         if data:
@@ -78,7 +78,7 @@ class Matcher():
 
     def match(self, compiled_pattern, raw_data):
         data, leftover, abend, t0, t1 = self.engine.match(compiled_pattern, bytes23(raw_data), 1, b"json")
-        if data and (not abend) and (leftover == 0):
+        if data and (not abend):
             return json.loads(data)
         return None
 
@@ -110,5 +110,3 @@ class Matcher():
             return deps, json.loads(errs)
         else:
             return None, None
-
-    

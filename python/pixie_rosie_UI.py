@@ -2,12 +2,10 @@ import classify_data as cd
 import pixiedust
 from pixiedust.display.app import *
 from pixiedust.utils.shellAccess import ShellAccess
+from adapt23 import *
 
 @PixieApp
 class PixieRosieApp:
-
-    def textToInt(self,text):
-        return int(text)
 
     @route()
     def main(self):
@@ -94,44 +92,90 @@ class PixieRosieApp:
     @route(transform="*")
     def transform_screen(self, transform):
         return """
-        <div class="well">
-            <div class="panel panel-primary">
-                <div class="panel-heading">Pattern</div>
-                <div class="panel-body">
+        <div class="well" style="width: 100%; height: 100%; overflow: hidden;">
+            <div class="panel panel-primary" style="width: 48%; float: left; margin: 1%;">
+                <div class="panel-heading">Rosie Pattern</div>
+                <div class="panel-body" style="height: 200px; overflow-y: scroll;">
                     <style>
                         p {
                           text-indent: 4.0em;
                         }
                     </style>
-                   <div class="search">
-                        Pattern: <br/>
-                        <input type="text" id="pat{{prefix}}" class="searchTerm" placeholder="{{this.schema.transform.pattern}}">
-                        <button type="submit" pd_script="self.schema.transform.extract_components('$val(pat{{prefix}})')" pd_options="transform={{transform}}">Define</button>
-                   </div>
-                   {% if this.schema.transform.components %}
-                        {%for comp in this.schema.transform.components:%}
-                            <p>
-                                <input type="text" id="comp1{{prefix}}" class="searchTerm" value="{{comp.name}}" readonly>
-                                <input type="text" id="comp2{{prefix}}" class="searchTerm" placeholder="definition">
-                            </p>
-                        {%endfor%}
-                        <br>
-                        <button type="submit" pd_script="self.schema.transform.create_sample_data()" pd_options="transform={{transform}}">Run</button>
+                   {% if this.schema.transform.components == None%}
+                        <div class="search">
+                             Enter Rosie Pattern: <br/>
+                             <input type="text" id="pat{{prefix}}" class="searchTerm">
+                             <button type="submit" pd_script="self.schema.set_transform_components('$val(pat{{prefix}})')" pd_options="transform={{transform}}">Extract Variables</button>
+                             <button type="submit" pd_options="transform={{transform}}">Use Suggestion
+                                <pd_script>
+self.schema.suggest_destructuring({{transform}})
+                                </pd_script>
+                             </button>
+                        </div>
+
+                    {% else %}
+                        <div class="search">
+                             Pattern: <br/>
+                             <input type="text" id="pat{{prefix}}" class="searchTerm" value="{{this.schema.toStr(this.schema.transform._pattern._definition)}}" readonly>
+                        </div>
+                         {%for comp in this.schema.transform.components:%}
+                             <p>
+                                 <input type="text" class="searchTerm" value="{{this.schema.toStr(comp._name)}}" readonly>
+                                 {% if comp._definition%}
+                                    <input type="text" id="comp{{loop.index0}}" class="searchTerm" value="{{this.schema.toStr(comp._definition)}}">
+                                 {% else %}
+                                    <input type="text" id="comp{{loop.index0}}" class="searchTerm" placeholder="Definition">
+                                 {% endif %}
+                             </p>
+                         {%endfor%}
+                         <br>
+                         <button type="submit" pd_script="self.schema.clear_transform()" pd_options="transform={{transform}}">Clear</button>
+                         <button type="submit" pd_options="transform={{transform}}">Create Columns
+                            <pd_script>
+for idx,comp in enumerate(self.schema.transform.components):
+    if (idx == 0):
+        comp._definition = bytes23("$val(comp0)")
+    elif (idx == 1):
+        comp._definition = bytes23("$val(comp1)")
+    elif (idx == 2):
+        comp._definition = bytes23("$val(comp2)")
+    elif (idx == 3):
+        comp._definition = bytes23("$val(comp3)")
+self.schema.new_columns()
+                            </pd_script>
+                         </button>
+
                    {% endif %}
                 </div>
             </div>
-            <br/>
-            <div class="panel panel-primary">
+
+            <div class="panel panel-primary" style="width: 48%; float: left; margin: 1%;">
+                <div class="panel-heading">Rosie Notes</div>
+                <div class="panel-body" style="height: 200px; overflow-y: scroll;">
+                    <table class="table table-bordered table-striped">
+                        {%for row in this.schema.rosie_cheat_sheet:%}
+                            <tr>
+                            {%for col in row:%}
+                                <td style="text-align: left;">{{col}}</td>
+                            {%endfor%}
+                            </tr>
+                        {%endfor%}
+                    </table>
+                </div>
+            </div>
+            <br>
+            <br>
+            <div class="panel panel-primary" style="width: 48%; float: left; margin: 1%;">
                 <div class="panel-heading">Selected Column</div>
-                <div class="panel-body">
+                <div class="panel-body" style="height: 400px; overflow-y: scroll;">
                     <table class="table table-bordered table-striped">
                         <thead>
-                            <th style="text-align: left;">{{this.schema.colnames[this.textToInt(transform)]}}</th>
+                            <th style="text-align: left;">{{this.schema.colnames[transform|int]}}</th>
                         </thead>
                         {%for row in this.schema.sample_data:%}
                             <tr>
                             {%for col in row:%}
-                                {% if loop.index0 == this.textToInt(transform) %}
+                                {% if loop.index0 == transform|int %}
                                     <td style="text-align: left;">{{col}}</td>
                                 {% endif %}
                             {%endfor%}
@@ -140,29 +184,34 @@ class PixieRosieApp:
                     </table>
                 </div>
             </div>
-            <br />
-            <div class="panel panel-primary">
+
+            <div class="panel panel-primary" style="width: 48%; float: left; margin: 1%;">
                 <div class="panel-heading">New Column(s)</div>
-                <div class="panel-body">
-                    <table class="table table-bordered table-striped">
-                        {% if this.schema.transform.new_col_names %}
-                            <thead>
-                                {%for name in this.schema.transform.new_col_names:%}
-                                    <th>{{name}}</th>
+                <div class="panel-body" style="height: 400px; overflow-y: scroll;">
+                    {% if this.schema.transform.errors %}
+                        Error Message:
+                        {{this.schema.transform.errors}}
+                    {% else %}
+                        <table class="table table-bordered table-striped">
+                            {% if this.schema.transform.new_sample_data %}
+                                <thead>
+                                    {%for comp in this.schema.transform.components:%}
+                                        <th>{{this.schema.toStr(comp._name)}}</th>
+                                    {%endfor%}
+                                </thead>
+                                {%for row in this.schema.transform.new_sample_data_display:%}
+                                    <tr>
+                                    {%for col in row:%}
+                                        <td>{{col}}</td>
+                                    {%endfor%}
+                                    </tr>
                                 {%endfor%}
-                            </thead>
-                            {%for row in this.schema.transform.preview:%}
-                                <tr>
-                                {%for col in row:%}
-                                    <td>{{col}}</td>
-                                {%endfor%}
-                                </tr>
-                            {%endfor%}
-                        {% endif %}
-                    </table>
+                            {% endif %}
+                        </table>
+                    {% endif %}
                 </div>
             </div>
             <input pd_options="home=true" type="button" value="Cancel">
-            <button type="submit" pd_script="" pd_options="home=true"" >Create Columns</button>
+            <button type="submit" pd_script="self.schema.commit_new_columns()" pd_options="home=true"" >Commit Columns</button>
         </div>
         """
