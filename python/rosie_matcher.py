@@ -24,6 +24,19 @@ def most_specific(match):
         match = subs[0]
     return match
         
+# Future: Construct these lists by querying the initial Rosie
+# environment, just after engine creation.  (Currently, the API for
+# this is not in librosie. -- JAJ, April 2018.)
+_builtin_refnames = list({b'$', b'.', b'^', b'ci', b'error', b'find', b'findall', b'keepto', b'message', b'~'})
+
+def builtin(refname):
+    return bytes23(refname) in _builtin_refnames
+
+_builtin_refnames_no_capture = list({b'$', b'.', b'^', b'ci', b'~'})
+
+def no_capture(refname):
+    return bytes23(refname) in _builtin_refnames_no_capture
+
 # ------------------------------------------------------------------
 # Rosie matching functions
 #
@@ -78,7 +91,7 @@ class Matcher():
 
     def match(self, compiled_pattern, raw_data):
         data, leftover, abend, t0, t1 = self.engine.match(compiled_pattern, bytes23(raw_data), 1, b"json")
-        if data and (not abend) and (leftover == 0):
+        if data and (not abend):
             return json.loads(data)
         return None
 

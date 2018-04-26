@@ -111,7 +111,7 @@ def test():
     assert( new is False )
     assert( 'pattern' in tr2.errors )
     
-    assert(len(tr2.components) == 2)
+    assert(len(tr2.components) == 1)
     pat = tr2.components[0]
     assert(pat._name == b'prefix')
     assert(pat._definition is None)
@@ -138,6 +138,90 @@ def test():
     s.set_native_type(28, lambda x: "foo"+str(int(x)))
     classify_data.print_sample_data_verbosely(s, 0)
 
+# -----------------------------------------------------------------------------
+    print()
+    print("TRANSFORM column 26 to extract the alpha prefix and the rest of the field:")
+
+    tr2 = classify_data.Transform(26)
+    tr2._pattern = classify_data.Pattern(None, '{x .*}')
+    s.set_transform_components(tr2)
+    assert(len(tr2.components) == 1)
+    # User enters defn for x
+    pat = tr2.components[0]
+    assert(pat._name == b'x')
+    assert(pat._definition is None)
+    pat._definition = b'[A-Z]+'
+
+    new = s.new_columns(tr2)
+    assert( new )
+    assert( tr2.errors is None )
+
+    print('*** pattern:', tr2._pattern._definition)
+    print('*** components:', map23(lambda c: (c._name, c._definition), tr2.components))
+    print('*** imports:', tr2.imports)
+    
+    print(new)
+
+# -----------------------------------------------------------------------------
+
+    print()
+    print("TRANSFORM column 26 to extract the alpha prefix:")
+
+    tr2 = classify_data.Transform(26)
+    tr2._pattern = classify_data.Pattern(None, 'x')
+    s.set_transform_components(tr2)
+    assert(len(tr2.components) == 1)
+    # User enters defn for x
+    pat = tr2.components[0]
+    assert(pat._name == b'x')
+    assert(pat._definition is None)
+    pat._definition = b'[A-Z]+'
+    # # User should not have to define '.'
+    # pat = tr2.components[0]
+    # assert(pat._name == b'.')
+    # assert(pat._definition is None)
+    # pat._definition = False
+
+    new = s.new_columns(tr2)
+    assert( new )
+    assert( tr2.errors is None )
+
+    print('*** pattern:', tr2._pattern._definition)
+    print('*** components:', map23(lambda c: (c._name, c._definition), tr2.components))
+    print('*** imports:', tr2.imports)
+    
+    print(new)
+
+# -----------------------------------------------------------------------------
+    print()
+    print("** Experiment with find/findall on column 26 **")
+
+    tr2 = classify_data.Transform(26)
+    tr2._pattern = classify_data.Pattern(None, '{find:[:digit:] n}')
+    s.set_transform_components(tr2)
+    print(map23(lambda p: (p._name, p._definition), tr2.components))
+    
+    assert(len(tr2.components) == 1)
+    # User enters defn for n
+    pat = tr2.components[0]
+    assert(pat._name == b'n')
+    assert(pat._definition is None)
+    pat._definition = b'[:digit:]'
+
+    new = s.new_columns(tr2)
+    assert( new )
+    assert( tr2.errors is None )
+
+    print('*** pattern:', tr2._pattern._definition)
+    print('*** components:', map23(lambda c: (c._name, c._definition), tr2.components))
+    print('*** imports:', tr2.imports)
+    
+    print(new)
+
+# ---------------------------------------------------------------------------------------------------
+
+    sys.exit(0)
+    
 # ---------------------------------------------------------------------------------------------------
     print()
     print("Let's try to INFER a destructing for column 20")

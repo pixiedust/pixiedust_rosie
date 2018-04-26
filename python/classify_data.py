@@ -53,13 +53,20 @@ def most_specific(match):
         match = subs[0]
     return match
 
-def ref_to_name(ref):
-    assert('ref' in ref)
+def capture(ref):
+    return not rosie_matcher.no_capture(extract_refname(ref))
+
+def extract_refname(ref):
     ref = ref['ref']
     if 'packagename' in ref:
-        return ref['packagename'] + '.' + ref['localname'], True
+        return bytes23(ref['packagename'] + '.' + ref['localname'])
     else:
-        return ref['localname'], False
+        return bytes23(ref['localname'])
+
+def potentially_unbound(ref):
+    ref = ref['ref']
+    return ( (not 'packagename' in ref) and
+             (not rosie_matcher.builtin(ref['localname'])) )
 
 # ------------------------------------------------------------------
 # Schema column types that are not strings
@@ -207,11 +214,22 @@ class Schema:
         if (not refs) and errs:
             transformer.errors = error_syntax(errs)
             return False
-        name_tuples = map23(ref_to_name, refs)
-        needing_definitions = set(map23(lambda t: t[0], filter(lambda t: not t[1], name_tuples)))
-        not_needing_definitions = set(map23(lambda t: t[0], filter(lambda t: t[1], name_tuples)))
+        # Remove references to RPL aliases, like '.', which do not
+        # capture anything (and thus will never appear in the output)
+        refs = filter(capture, refs)
+        needing_definitions = map23(extract_refname,
+                                    filter(potentially_unbound, refs))
+        not_needing_definitions = map23(extract_refname,
+                                        filter(lambda r: not potentially_unbound(r), refs))
+
+        # TODO: filter out duplicates from the two lists above!
+
+        # Put the components that need definitions (from the user)
+        # first in the new_components list, for convenience
         new_components = map23(lambda name: Pattern(name, None), needing_definitions)
         new_components.extend(map23(lambda name: Pattern(name, False), not_needing_definitions))
+        # If there is already a list of components, then copy over
+        # their definitions into the new list.
         if transformer.components:
             for c in new_components:
                 existing = False
