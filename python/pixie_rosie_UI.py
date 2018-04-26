@@ -15,19 +15,23 @@ class PixieRosieApp:
                     <div class="panel-heading">Schema</div>
                     <div class="panel-body">
                         <table class="table table-bordered table-striped">
+                            <col width="200">
+                            <col width="150">
+                            <col width="150">
+                            <col width="200">
                             <thead>
-                                <th>Column Name</th>
-                                <th>Rosie Type</th>
-                                <th>Column Type</th>
-                                <th>Action</th>
+                                <th style="text-align: left;">Column Name</th>
+                                <th style="text-align: left;">Rosie Type</th>
+                                <th style="text-align: left;">Column Type</th>
+                                <th style="text-align: left;">Action</th>
                             </thead>
                             {%for display, name, rosie_type, native_type in this.schema.create_schema_table():%}
                                 {% if display %}
                                     <tr>
-                                        <td>{{name}}</td>
-                                        <td>{{rosie_type}}</td>
-                                        <td>{{native_type.__name__}}</td>
-                                        <td>
+                                        <td style="text-align: left;">{{name}}</td>
+                                        <td style="text-align: left;">{{rosie_type}}</td>
+                                        <td style="text-align: left;">{{native_type.__name__}}</td>
+                                        <td style="text-align: left;">
                                             <button type="submit" pd_options="modify={{loop.index0}}">Rename</button>
                                             <button type="submit" pd_script="self.schema.create_transform({{loop.index0}})" pd_options="transform={{loop.index0}}">Transform</button>
                                             <button type="submit" pd_refresh>Delete
@@ -53,7 +57,7 @@ class PixieRosieApp:
                                 <thead>
                                     {%for name in this.schema.colnames:%}
                                         {% if this.schema.column_visibility[loop.index0] %}
-                                            <th>{{name}}</th>
+                                            <th style="text-align: left;">{{name}}</th>
                                         {% endif %}
                                     {%endfor%}
                                 </thead>
@@ -61,7 +65,7 @@ class PixieRosieApp:
                                     <tr>
                                     {%for col in row:%}
                                         {% if this.schema.column_visibility[loop.index0] %}
-                                            <td>{{col}}</td>
+                                            <td style="text-align: left;">{{col}}</td>
                                         {% endif %}
                                     {%endfor%}
                                     </tr>
@@ -196,13 +200,13 @@ self.schema.new_columns()
                             {% if this.schema.transform.new_sample_data %}
                                 <thead>
                                     {%for comp in this.schema.transform.components:%}
-                                        <th>{{this.schema.toStr(comp._name)}}</th>
+                                        <th style="text-align: left;">{{this.schema.toStr(comp._name)}}</th>
                                     {%endfor%}
                                 </thead>
                                 {%for row in this.schema.transform.new_sample_data_display:%}
                                     <tr>
                                     {%for col in row:%}
-                                        <td>{{col}}</td>
+                                        <td style="text-align: left;">{{col}}</td>
                                     {%endfor%}
                                     </tr>
                                 {%endfor%}
