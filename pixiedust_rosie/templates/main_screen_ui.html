@@ -1,0 +1,61 @@
+<div id=target{{prefix}} class="well">
+    <div class="panel panel-primary">
+        <div class="panel-heading">Schema</div>
+        <div class="panel-body">
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <th>Column Name</th>
+                    <th>Rosie Type</th>
+                    <th>Column Type</th>
+                    <th>Action</th>
+                </thead>
+                {%for display, name, rosie_type, native_type in this.schema.create_schema_table():%}
+                    {% if display %}
+                        <tr>
+                            <td>{{name}}</td>
+                            <td>{{rosie_type}}</td>
+                            <td>{{native_type.__name__}}</td>
+                            <td>
+                                <button type="submit" pd_options="modify={{loop.index0}}">Rename</button>
+                                <button type="submit" pd_script="self.schema.create_transform({{loop.index0}})" pd_options="transform={{loop.index0}}">Transform</button>
+                                <button type="submit" pd_refresh>Delete
+                                    <pd_script type="preRun">
+                                        return confirm("Are you sure you want to delete?");
+                                    </pd_script>
+                                    <pd_script>
+                                        self.schema.hide_column({{loop.index0}});
+                                    </pd_script>
+                                </button>
+                            </td>
+                        </tr>
+                    {% endif %}
+                {%endfor%}
+            </table>
+        </div>
+    </div>
+    <br/>
+    <div class="panel panel-primary">
+        <div class="panel-heading">Sample Data</div>
+        <div class="panel-body">
+            <table class="table table-bordered table-striped">
+                <thead>
+                    {%for name in this.schema.colnames:%}
+                        {% if this.schema.column_visibility[loop.index0] %}
+                            <th>{{name}}</th>
+                        {% endif %}
+                    {%endfor%}
+                </thead>
+                {%for row in this.schema.sample_data:%}
+                    <tr>
+                    {%for col in row:%}
+                        {% if this.schema.column_visibility[loop.index0] %}
+                            <td>{{col}}</td>
+                        {% endif %}
+                    {%endfor%}
+                    </tr>
+                {%endfor%}
+            </table>
+        </div>
+    </div>
+    <input pd_options="RosieUI=true" type="button" value="Finish">
+</div>
