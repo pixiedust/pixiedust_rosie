@@ -1,0 +1,71 @@
+<div class="well">
+    <div class="panel panel-primary">
+        <div class="panel-heading">Pattern</div>
+        <div class="panel-body">
+            <style>
+                p {
+                  text-indent: 4.0em;
+                }
+            </style>
+           <div class="search">
+                Pattern: <br/>
+                <input type="text" id="pat{{prefix}}" class="searchTerm" placeholder="{{this.schema.transform.pattern}}">
+                <button type="submit" pd_script="self.schema.transform.extract_components('$val(pat{{prefix}})')" pd_options="transform={{transform}}">Define</button>
+           </div>
+           {% if this.schema.transform.components %}
+                {%for comp in this.schema.transform.components:%}
+                    <p>
+                        <input type="text" id="comp1{{prefix}}" class="searchTerm" value="{{comp.name}}" readonly>
+                        <input type="text" id="comp2{{prefix}}" class="searchTerm" placeholder="definition">
+                    </p>
+                {%endfor%}
+                <br>
+                <button type="submit" pd_script="self.schema.transform.create_sample_data()" pd_options="transform={{transform}}">Run</button>
+           {% endif %}
+        </div>
+    </div>
+    <br/>
+    <div class="panel panel-primary">
+        <div class="panel-heading">Selected Column</div>
+        <div class="panel-body">
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <th style="text-align: left;">{{this.schema.colnames[this.textToInt(transform)]}}</th>
+                </thead>
+                {%for row in this.schema.sample_data:%}
+                    <tr>
+                    {%for col in row:%}
+                        {% if loop.index0 == this.textToInt(transform) %}
+                            <td style="text-align: left;">{{col}}</td>
+                        {% endif %}
+                    {%endfor%}
+                    </tr>
+                {%endfor%}
+            </table>
+        </div>
+    </div>
+    <br />
+    <div class="panel panel-primary">
+        <div class="panel-heading">New Column(s)</div>
+        <div class="panel-body">
+            <table class="table table-bordered table-striped">
+                {% if this.schema.transform.new_col_names %}
+                    <thead>
+                        {%for name in this.schema.transform.new_col_names:%}
+                            <th>{{name}}</th>
+                        {%endfor%}
+                    </thead>
+                    {%for row in this.schema.transform.preview:%}
+                        <tr>
+                        {%for col in row:%}
+                            <td>{{col}}</td>
+                        {%endfor%}
+                        </tr>
+                    {%endfor%}
+                {% endif %}
+            </table>
+        </div>
+    </div>
+    <input pd_options="home=true" type="button" value="Cancel">
+    <button type="submit" pd_script="" pd_options="home=true"" >Create Columns</button>
+</div>
