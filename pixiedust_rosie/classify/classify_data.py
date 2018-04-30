@@ -14,11 +14,13 @@
 # limitations under the License.
 # -------------------------------------------------------------------------------
 
+# To install rosie: pip install rosie
+
 from __future__ import unicode_literals, print_function
 
-from pixiedust_rosie.classify import rosie_matcher,destructure
+import rosie_matcher, destructure
 import sys, os, json, tempfile, csv
-from .adapt23 import *
+from adapt23 import *
 
 # ------------------------------------------------------------------
 # Error messages
@@ -74,6 +76,7 @@ def potentially_unbound(ref):
     return ( (not 'packagename' in ref) and
              (not rosie_matcher.builtin(ref['localname'])) )
 
+# TODO Should use itertools.compress for this:
 def apply_visibility(data, visibility_mask):
     temp = zip23(data, visibility_mask)
     return map23(lambda p: p[0], filter(lambda p: p[1], temp))
@@ -127,7 +130,8 @@ class Schema:
         self.inconsistent_rows = None     # list of (rownum, rowdata) tuples
         self.column_visibility = None     # list of booleans, True=visible
         self.type_map = default_type_map.copy()
-        self.transformer = None           # Future: this should be an ordered list
+        self.transformer = None 
+        self.transformers = list()        # Committed transformations
         self._infer = None
 
     # ------------------------------------------------------------------
@@ -198,18 +202,25 @@ class Schema:
     # Process entire file, writing a new file
     #
     def process_file(self):
-        if (not self.transformer) or (not self.matcher) or (not self.filename):
+        assert(self.rosie_types and self.native_types and self.column_visibility)
+        if (not self.matcher) or (not self.filename):
             return False, "Cannot process file until analysis of sample data is run"
-        if self.transformer.errors:
-            return False, "There are transformer errors:\n" + str(self.transformer.errors)
-        pat, errs = self.matcher.engine.compile(bytes23(self.transformer._pattern._definition))
-        component_names = map23(lambda c: str23(c._name), self.transformer.components)
-        if not pat:
-            return False, "Error compiling pattern:\n" + str(errs)
+
+        # Pre-process the transformer list
+        compiled_patterns = list()
+        for t in self.transformers:
+            if t.errors:
+                return False, "There are transformer errors:\n" + str(t.errors)
+            pat, errs = self.matcher.engine.compile(bytes23(t._pattern._definition))
+            if not pat:
+                return False, "Error compiling pattern:\n" + str(errs)
+            compiled_patterns.append(pat)
         try:
             fin = open(self.filename, newline='')
         except Exception as e:
             return False, "Could not open input file:\n" + str(e)
+        # Skip reading the col names, which we already have
+        fin.readline()
         try:
             tempdir = tempfile.gettempdir()
             pathname = os.path.join(tempdir, "wrangled_" + os.path.basename(self.filename))
@@ -217,15 +228,13 @@ class Schema:
         except Exception as e:
             return False, "Could not open output file:\n" + str(e)
         writer = csv.writer(fout)
-        assert(self.rosie_types and self.native_types and self.column_visibility)
-        # Skip reading the col names, which we already have
-        fin.readline()
         # Write the column names
         writer.writerow(apply_visibility(self.colnames, self.column_visibility))
+        # Apply the sequence of transformers to each row in the original file
         for line in fin:
             row = self.line_to_list(line)
-            # Future: apply list of transformers in order
-            self.add_columns_to_row(row, pat, component_names)
+            for t, pat in zip23(self.transformers, compiled_patterns):
+                self.add_columns_to_row(row, pat, t)
             assert(len(row) == len(self.column_visibility))
             writer.writerow(apply_visibility(row, self.column_visibility))
         fout.close()
@@ -342,12 +351,13 @@ class Schema:
     # Insert column(s) into a row using self.transform to create them.
     # Return the new row, and make no changes to sample data, etc.
 
-    def add_columns_to_row(self, row, pat, component_names):
-        colnum = self.transformer._colnum
+    def add_columns_to_row(self, row, pat, transformer):
+        colnum = transformer._colnum
+        component_names = map23(lambda c: str23(c._name), transformer.components)
         original_datum = row[colnum]
         m = self.matcher.match(pat, original_datum)
         for cnum, cn in enumerate(component_names):
-            if self.transformer.destructuring:
+            if transformer.destructuring:
                 new_datum = m['subs'][cnum]['data']
             else:
                 new_datum = self.matcher.extract(m, cn)
@@ -388,24 +398,20 @@ class Schema:
             m = self.matcher.match(pat, row[colnum])
             for compnum, cn in enumerate(component_names):
                 if transformer.destructuring:
-                    #print('*** destructuring and component names are:', component_names)
                     datum = m['subs'][compnum]['data']
                 else:
                     datum = self.matcher.extract(m, cn)
                 newcols[compnum].append(datum)
         return newcols
 
-    def commit_new_columns(self, transformer):
-        # BUG: Can only commit once, unless you want to start over, in
-        # which case you must reset everything in your schema object,
-        # including sample data.  To start over after a commit, you
-        # should *really* start over by creating a new schema object.
-        self.transformer = transformer
-        newcols = self.new_columns(transformer)
+    # Commit the operation of self.transformer
+    def commit_new_columns(self):
+        assert(self.transformer)
+        newcols = self.new_columns(self.transformer)
         if not newcols: return False
-        self.cols += len(transformer.components)
-        for i, component in enumerate(transformer.components):
-            newcolnum = transformer._colnum + i + 1
+        self.cols += len(self.transformer.components)
+        for i, component in enumerate(self.transformer.components):
+            newcolnum = self.transformer._colnum + i + 1
             cn = str23(component._name)
             # Sample data and its types are stored by row
             for rownum in range(len(self.sample_data)):
@@ -415,16 +421,14 @@ class Schema:
             self.column_visibility.insert(newcolnum, True)
             self.colnames.insert(newcolnum, cn)
             self.rosie_types.insert(newcolnum, cn)
-            self.synthetic_column.insert(newcolnum,
-                                              {'col': transformer._colnum,
-                                               'exp': component._definition,
-                                               'name': cn,
-                                               'rpl': transformer.generate_rpl()
-                                              })
+            self.synthetic_column.insert(newcolnum, True)
             if not (cn in self.type_map):
                 # Use a default native type, which the user can change later
                 self.type_map[cn] = str
             self.assign_native_type(newcolnum)
+        # Success!
+        self.transformers.append(self.transformer)
+        self.transformer = None
 
     # ------------------------------------------------------------------
     # Delete any rows (actually remove them) that do not have the right
