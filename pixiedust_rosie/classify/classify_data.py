@@ -18,9 +18,9 @@
 
 from __future__ import unicode_literals, print_function
 
-import rosie_matcher, destructure
+import pixiedust_rosie.classify.rosie_matcher, pixiedust_rosie.classify.destructure
 import sys, os, json, tempfile, csv
-from adapt23 import *
+from .adapt23 import *
 
 # ------------------------------------------------------------------
 # Error messages
