@@ -632,7 +632,7 @@ def print_sample_data_verbosely(s, rownum):
         num = repr(colnum).ljust(5)
         label = label[:20].ljust(20)
         d = (datum and repr(datum)[:20] or "").ljust(20)
-        rt = repr(rtype)[:18].ljust(18)
+        rt = str(rtype)[:18].ljust(18)
         nt = repr(ntype)[:16].ljust(16)
         deleted_ = s.column_visibility[colnum] and ' ' or '['
         _deleted = s.column_visibility[colnum] and ' ' or ']'
