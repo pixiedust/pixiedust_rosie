@@ -210,6 +210,7 @@ def test():
     
     print(new)
 
+
 # ---------------------------------------------------------------------------------------------------
     print()
     print("Let's try to INFER a destructing for column 20")
@@ -219,12 +220,29 @@ def test():
     assert( not err )
     print('No suggested destructuring found, which was expected.')
     
+# ---------------------------------------------------------------------------------------------------
+    print()
+    print("Let's try to INFER a destructing for column 25")
+
+    tr3, err = s.suggest_destructuring(25)
+    assert( tr3 )
+    assert( not err )
+
+    print()
+    print("COMMIT the new cols above:")
+
+    print('*** pattern:', tr3._pattern._definition)
+    print('*** components:', map23(lambda c: (c._name, c._definition), tr3.components))
+    print('*** imports:', tr3.imports)
+
+    s.transformer = tr3
+    s.commit_new_columns()
 
 # ---------------------------------------------------------------------------------------------------
     print()
-    print("Let's try to INFER a destructing for column 26")
+    print("Let's try to INFER a destructing for column 26 (+2 for previous commit)")
 
-    tr3, err = s.suggest_destructuring(26)
+    tr3, err = s.suggest_destructuring(26+2)
     
     new = s.new_columns(tr3)
 
@@ -240,7 +258,8 @@ def test():
     print()
     print("COMMIT the two cols above:")
 
-    s.commit_new_columns(tr3)
+    s.transformer = tr3
+    s.commit_new_columns()
 
     # And we will make visible again the original column, 26, so we
     # can see in the final output that the destructuring worked
@@ -257,19 +276,15 @@ def test():
     else:
         print(filename)
 
-    # Can only commit once without resetting
-    
+# ---------------------------------------------------------------------------------------------------
     sys.exit(0)
-    
-
-
 # ---------------------------------------------------------------------------------------------------
 
 
 
 
 
-
+# ---------------------------------------------------------------------------------------------------
 
 test()
 

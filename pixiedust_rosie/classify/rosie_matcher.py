@@ -14,9 +14,11 @@
 # limitations under the License.
 # -------------------------------------------------------------------------------
 
+# To install rosie: pip install rosie
+
 from __future__ import unicode_literals, print_function
 import json, os, rosie
-from .adapt23 import str23, bytes23
+from .adapt23 import *
 
 # ------------------------------------------------------------------
 # Utility functions
