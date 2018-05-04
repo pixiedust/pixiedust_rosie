@@ -13,19 +13,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # -------------------------------------------------------------------------------
-from pixiedust.utils.sampleData import Downloader
-from .pixie_rosie_UI import PixieRosieApp
+from pixiedust.utils.sampleData import Downloader, SampleData, dataDefs
+from .pixie_rosie_UI_FACTORED import PixieRosieApp
 
-def wrangle_data(url):
+def wrangle_data(url=None):
     """
     Main public API that performs the following operations:
     1. Download the url in a local directory
     2. Call the PixieRosieApp UI
     3. Create a Pandas DataFrame with the user selections
     """
+
+    if url is None:
+        return SampleData(dataDefs, False).printSampleDataList()
+
     def data_loader(path, schema):
         """Invoke the PixieRosieApp with the path to the local file"""
         PixieRosieApp().run(path)
+
+    if str(url) in dataDefs:
+        url = dataDefs[str(url)]['url']
 
     Downloader({
             "displayName": url,
