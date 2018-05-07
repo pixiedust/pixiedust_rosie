@@ -3,7 +3,7 @@
     <div>
       Enter a variable name for the Pandas DataFrame result:
       <br><br>
-      <input type="search" id="df_name{{prefix}}" style="width: 250px;" name="df_name" value="{{this.schema.output_path}}">
+      <input type="search" id="df_name{{prefix}}" style="width: 250px;" name="df_name" placeholder="Variable name...">
       <br><br>
       <input class="btn btn-primary" style="font-size: 12px;" pd_options="home=true" type="button" value="Cancel">
       <button class="btn btn-primary" style="font-size: 12px;" type="submit" pd_script="self.schema.process_file()" pd_options="">Finish</button>
