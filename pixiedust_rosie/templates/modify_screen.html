@@ -1,11 +1,11 @@
 <div class="well">
-    <form>
-        <div>
-            <input type="search" id="new_name{{prefix}}" name="colname" placeholder="new name...">
-            <br/>
-            <br/>
-            <input pd_options="home=true" type="button" value="Cancel">
-            <button type="submit" pd_script="self.schema.rename_column({{modify}}, '$val(new_name{{prefix}})')" pd_options="home=true">Rename</button>
-        </div>
-    </form>
+  <form>
+    <div>
+      <input type="search" id="new_name{{prefix}}" name="colname" placeholder="New Column Name...">
+      <br/>
+      <br/>
+      <input class="btn btn-primary" style="font-size: 12px;" pd_options="home=true" type="button" value="Cancel">
+      <button class="btn btn-primary" style="font-size: 12px;" type="submit" pd_script="self.schema.rename_column({{modify}}, '$val(new_name{{prefix}})')" pd_options="home=true">Rename</button>
+    </div>
+  </form>
 </div>

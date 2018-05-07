@@ -1,12 +1,12 @@
 # -------------------------------------------------------------------------------
 # Copyright IBM Corp. 2018
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the 'License');
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 # http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an 'AS IS' BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -130,7 +130,7 @@ class Schema:
         self.inconsistent_rows = None     # list of (rownum, rowdata) tuples
         self.column_visibility = None     # list of booleans, True=visible
         self.type_map = default_type_map.copy()
-        self.transformer = None 
+        self.transformer = None
         self.transformers = list()        # Committed transformations
         self._infer = None
 
@@ -144,7 +144,7 @@ class Schema:
         if (colnum < 0) or (colnum > len(cols)):
             return None, RuntimeError('column number out of range')
         return cols[colnum], None
-    
+
     # ------------------------------------------------------------------
     # Process
     #
@@ -238,6 +238,7 @@ class Schema:
             assert(len(row) == len(self.column_visibility))
             writer.writerow(apply_visibility(row, self.column_visibility))
         fout.close()
+        self.output_path = pathname
         return pathname, None
 
     # ------------------------------------------------------------------
@@ -280,13 +281,14 @@ class Schema:
     # ------------------------------------------------------------------
     # Create a component pattern for each reference in the transformer pattern
     #
-    def set_transform_components(self, transformer):
-        if (not transformer._pattern) or (not transformer._pattern._definition):
-            transformer.errors = error_no_pattern
+    def set_transform_components(self, pat_definition_rpl):
+        self.transformer._pattern = Pattern(None, pat_definition_rpl)
+        if (not self.transformer._pattern) or (not self.transformer._pattern._definition):
+            self.transformer.errors = error_no_pattern
             return False
-        refs, errs = self.matcher.expression_refs(transformer._pattern._definition)
+        refs, errs = self.matcher.expression_refs(self.transformer._pattern._definition)
         if (not refs) and errs:
-            transformer.errors = error_syntax(errs)
+            self.transformer.errors = error_syntax(errs)
             return False
         # Remove references to RPL aliases, like '.', which do not
         # capture anything (and thus will never appear in the output)
@@ -304,18 +306,18 @@ class Schema:
         new_components.extend(map23(lambda name: Pattern(name, False), not_needing_definitions))
         # If there is already a list of components, then copy over
         # their definitions into the new list.
-        if transformer.components:
+        if self.transformer.components:
             for c in new_components:
                 existing = False
-                for pat in transformer.components:
+                for pat in self.transformer.components:
                     if pat._name == c._name:
                         existing = pat
                         break
                 if existing:
                     c._definition = existing._definition
-        transformer.components = new_components
+        self.transformer.components = new_components
         return True
-    
+
     # ------------------------------------------------------------------
     # Compute and set the dependencies in all of a transformer patterns
     #
@@ -327,28 +329,28 @@ class Schema:
             return RuntimeError(error_parsing(errs))
         return imports or list()
 
-    def set_transform_imports(self, transformer):
-        imports = self.find_imports(transformer._pattern._definition)
+    def set_transform_imports(self):
+        imports = self.find_imports(self.transformer._pattern._definition)
         if isinstance(imports, RuntimeError):
-            transformer.errors = str(imports)
+            self.transformer.errors = str(imports)
             return False
-        transformer.imports = imports
+        self.transformer.imports = imports
         final_status = True
-        for pat in transformer.components:
+        for pat in self.transformer.components:
             if pat._definition is not False:
                 imports = self.find_imports(pat._definition)
                 if isinstance(imports, RuntimeError):
-                    if transformer.errors:
-                        transformer.errors = transformer.errors  + '\n' + str(imports)
+                    if self.transformer.errors:
+                        self.transformer.errors = self.transformer.errors  + '\n' + str(imports)
                     else:
-                        transformer.errors = str(imports)
+                        self.transformer.errors = str(imports)
                     final_status = False
                 else:
-                    if imports: transformer.imports.extend(imports) 
+                    if imports: self.transformer.imports.extend(imports)
         return final_status
 
     # ------------------------------------------------------------------
-    # Insert column(s) into a row using self.transform to create them.
+    # Insert column(s) into a row using self.transformer to create them.
     # Return the new row, and make no changes to sample data, etc.
 
     def add_columns_to_row(self, row, pat, transformer):
@@ -362,60 +364,57 @@ class Schema:
             else:
                 new_datum = self.matcher.extract(m, cn)
             row.insert(colnum + cnum + 1, new_datum)
-        
+
     # ------------------------------------------------------------------
     # Create column(s) via a Rosie pattern applied to an existing
     # column.  Return the new columns, without adding them into the
     # Schema.  To change the Schema to include them, use
     # commit_new_columns.
 
-    def new_columns(self, transformer):
-        transformer.errors = None
-        if not transformer.destructuring:
-            if not self.set_transform_components(transformer):
-                return False
-        if not self.set_transform_imports(transformer):
+    def new_columns(self):
+        self.transformer.errors = None
+        if not self.set_transform_imports():
             return False
-        if transformer.imports:
-            for pkg in transformer.imports:
+        if self.transformer.imports:
+            for pkg in self.transformer.imports:
                 ok, _, errs = self.matcher.engine.load(bytes23('import ' + pkg))
                 if not ok:
-                    transformer.errors = error_missing_dependency(pkg, errs)
-        optional_rpl = transformer.generate_rpl()
+                    self.transformer.errors = error_missing_dependency(pkg, errs)
+        optional_rpl = self.transformer.generate_rpl()
         if optional_rpl:
             ok, _, errs = self.matcher.engine.load(bytes23(optional_rpl))
             if not ok:
-                transformer.errors = error_loading_rpl(errs)
+                self.transformer.errors = error_loading_rpl(errs)
                 return False
-        pat, errs = self.matcher.engine.compile(bytes23(transformer._pattern._definition))
+        pat, errs = self.matcher.engine.compile(bytes23(self.transformer._pattern._definition))
         if not pat:
-            transformer.errors = error_compiling(errs)
+            self.transformer.errors = error_compiling(errs)
             return False
-        colnum = transformer._colnum
-        component_names = map23(lambda c: str23(c._name), transformer.components)
+        colnum = self.transformer._colnum
+        component_names = map23(lambda c: str23(c._name), self.transformer.components)
         newcols = list(map23(lambda cn: list(), component_names))
         for rownum, row in enumerate(self.sample_data):
             m = self.matcher.match(pat, row[colnum])
             for compnum, cn in enumerate(component_names):
-                if transformer.destructuring:
+                if self.transformer.destructuring:
                     datum = m['subs'][compnum]['data']
                 else:
                     datum = self.matcher.extract(m, cn)
                 newcols[compnum].append(datum)
-        return newcols
+        self.transformer.new_sample_data = newcols
+        self.transformer.new_sample_data_display = zip(*newcols)
 
     # Commit the operation of self.transformer
     def commit_new_columns(self):
         assert(self.transformer)
-        newcols = self.new_columns(self.transformer)
-        if not newcols: return False
+        if not self.transformer.new_sample_data: return False
         self.cols += len(self.transformer.components)
         for i, component in enumerate(self.transformer.components):
             newcolnum = self.transformer._colnum + i + 1
             cn = str23(component._name)
             # Sample data and its types are stored by row
             for rownum in range(len(self.sample_data)):
-                self.sample_data[rownum].insert(newcolnum, newcols[i][rownum])
+                self.sample_data[rownum].insert(newcolnum, self.transformer.new_sample_data[i][rownum])
                 self.sample_data_types[rownum].insert(newcolnum, cn)
             # The other fields are column-oriented
             self.column_visibility.insert(newcolnum, True)
@@ -532,10 +531,20 @@ class Schema:
             return None, None
         if not fields:
             return None, None
-        tr = Transform(colnum, pattern_definition)
-        tr.destructuring = True
-        tr.components = map23(lambda name: Pattern(name, False), fields)
+        self.transformer = Transform(colnum, pattern_definition)
+        self.transformer.destructuring = True
+        self.transformer.components = map23(lambda name: Pattern(name, False), fields)
         return tr, None
+
+    def byteToStr(self, s):
+        return str23(s)
+
+    def clear_transform(self):
+        self.transformer._pattern = None
+        self.transformer.components = None
+        self.transformer.new_sample_data = None
+        self.transformer.new_sample_data_display = None
+        self.transformer.errors = None
 
 # ------------------------------------------------------------------
 # Transform: Everything needed to transform a column of data into one
@@ -552,6 +561,8 @@ class Transform:
         self.imports = None
         self.errors = None
         self.destructuring = False
+        self.new_sample_data = None
+        self.new_sample_data_display = None
 
     def generate_rpl(self):
         rpl = b''

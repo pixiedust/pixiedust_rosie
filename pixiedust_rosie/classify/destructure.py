@@ -1,12 +1,12 @@
 # -------------------------------------------------------------------------------
 # Copyright IBM Corp. 2018
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the 'License');
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 # http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an 'AS IS' BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -54,7 +54,7 @@ class finder():
 
 
 _rpl = b'''
--- -*- Mode: rpl; -*-                                                                                   
+-- -*- Mode: rpl; -*-
 --
 -- destructure.rpl
 --
@@ -85,7 +85,7 @@ semicolons = {{keepto:>{term / semicolon} semicolon}+ rest}
 -- test commas accepts "Detroit, MI, U.S."
 -- test semicolons accepts "145;32;NJ", ";", "48K;"
 
-local alpha = [:alpha:]+ 
+local alpha = [:alpha:]+
 local num = [:digit:]+
 alphanum = { {alpha num}+ alpha? } rest
 numalpha = { {num alpha}+ num? } rest
@@ -126,7 +126,7 @@ alias tryall = parentheses /
 
 -- NOTE the asymmetry in the output, depending on whether there was an opening
 -- delimeter and no closing one, or vice versa:
--- 
+--
 -- test tryall includes parentheses "(abc-123-def"
 -- test tryall includes error "(abc-123-def"
 -- test tryall excludes brackets "1, 2, 3]"

@@ -1,12 +1,12 @@
 # -------------------------------------------------------------------------------
 # Copyright IBM Corp. 2018
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the 'License');
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 # http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an 'AS IS' BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -24,9 +24,7 @@ class PixieRosieApp:
 
     def setup(self):
         self.schema = cd.Schema(self.pixieapp_entity, 50)
-
-    def textToInt(self,text):
-        return int(text)
+        self.schema.load_and_process()
 
     @route()
     def main(self):
@@ -39,3 +37,7 @@ class PixieRosieApp:
     @route(transform="*")
     def transform_screen(self, transform):
         return self.env.getTemplate("transform_screen.html")
+
+    @route(finish="*")
+    def finish_screen(self, finish):
+        return self.env.getTemplate("finish_screen.html")

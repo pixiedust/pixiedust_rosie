@@ -1,12 +1,12 @@
 # -------------------------------------------------------------------------------
 # Copyright IBM Corp. 2018
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the 'License');
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 # http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an 'AS IS' BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -30,7 +30,7 @@ def most_specific(match):
         if len(subs) > 1: return match
         match = subs[0]
     return match
-        
+
 # Future: Construct these lists by querying the initial Rosie
 # environment, just after engine creation.  (Currently, the API for
 # this is not in librosie. -- JAJ, April 2018.)
@@ -65,17 +65,17 @@ class Matcher():
         ok, _, messages = self.engine.import_pkg(bytes23(pkgname))
         if not ok:
             raise RuntimeError("RPL package {} failed to load:\n{}".format(pkgname, messages))
-        
+
     def loadfile(self, filename):
         ok, _, messages = self.engine.loadfile(bytes23(filename))
         if not ok:
             raise RuntimeError("file {} failed to load:\n{}".format(filename, messages))
-        
+
     def load(self, rpl_block):
         ok, _, messages = self.engine.load(bytes23(rpl_block))
         if not ok:
             raise RuntimeError("rpl code block ({}...) failed to load:\n{}".format(rpl_block[:20], messages))
-        
+
     def csv(self, raw_data):
         data, leftover, abend, t0, t1 = self.engine.match(self.csv_pattern, bytes23(raw_data), 1, b"json")
         if data:
@@ -130,5 +130,3 @@ class Matcher():
             return deps, json.loads(errs)
         else:
             return None, None
-
-    
