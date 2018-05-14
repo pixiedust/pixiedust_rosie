@@ -112,7 +112,7 @@ def test():
     assert( new is False )
     assert( 'pattern' in tr2.errors )
     
-    assert(len(tr2.components) == 1)
+    assert(len(tr2.components) == 2)
     pat = tr2.components[0]
     assert(pat._name == b'prefix')
     assert(pat._definition is None)
@@ -193,7 +193,7 @@ def test():
     s.set_transform_components(tr2)
     print(map23(lambda p: (p._name, p._definition), tr2.components))
     
-    assert(len(tr2.components) == 1)
+    assert(len(tr2.components) == 2)
     # User enters defn for n
     pat = tr2.components[0]
     assert(pat._name == b'n')

@@ -209,7 +209,10 @@ class Schema:
                 return False, "Error compiling pattern:\n" + str(errs)
             compiled_patterns.append(pat)
         try:
-            fin = open(self.filename, newline='')
+            if HAS_UNICODE_TYPE:
+                fin = open(self.filename)
+            else:
+                fin = open(self.filename, newline='')
         except Exception as e:
             return False, "Could not open input file:\n" + str(e)
         # Skip reading the col names, which we already have
@@ -217,7 +220,10 @@ class Schema:
         try:
             tempdir = tempfile.gettempdir()
             pathname = os.path.join(tempdir, "wrangled_" + os.path.basename(self.filename))
-            fout = open(pathname, mode='w+t', newline='') # write, truncate, text mode
+            if HAS_UNICODE_TYPE:
+                fout = open(pathname, mode='w+t')             # write, truncate, text mode
+            else:
+                fout = open(pathname, mode='w+t', newline='') # write, truncate, text mode
         except Exception as e:
             return False, "Could not open output file:\n" + str(e)
         writer = csv.writer(fout)
@@ -283,7 +289,7 @@ class Schema:
             return False
         # Remove references to RPL aliases, like '.', which do not
         # capture anything (and thus will never appear in the output)
-        refs = filter(capture, refs)
+        refs = filter23(capture, refs)
         needing_definitions = map23(extract_refname,
                                     filter(potentially_unbound, refs))
         not_needing_definitions = map23(extract_refname,
