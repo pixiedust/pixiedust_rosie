@@ -1,0 +1,6 @@
+<input class="btn btn-primary" style="font-size: 12px;" pd_options="home=true" type="button" value="Cancel">
+{% if this.schema.transformer.new_sample_data %}
+  <button class="btn btn-primary" style="font-size: 12px;" type="submit" pd_script="self.schema.commit_new_columns()" pd_options="home=true">Commit New Columns</button>
+{% else %}
+  <button class="btn btn-primary" style="font-size: 12px;" type="submit" disabled>Commit Columns</button>
+{% endif %}

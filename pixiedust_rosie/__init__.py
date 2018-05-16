@@ -37,4 +37,4 @@ def wrangle_data(url=None):
     Downloader({
             "displayName": url,
             "url": url
-        }, True).download( data_loader )
+}, True).download( data_loader )

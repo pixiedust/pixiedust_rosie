@@ -1,0 +1,20 @@
+{% if this.schema.transformer.errors %}
+  <font color = "red">Error Message: <br> {{this.schema.transformer.errors}}</font>
+{% elif this.schema.transformer.new_sample_data %}
+  <table class="table table-bordered table-striped">
+    <thead>
+      {%for comp in this.schema.transformer.components:%}
+        <th style="text-align: left;">{{this.schema.byteToStr(comp._name)}}</th>
+      {%endfor%}
+    </thead>
+    {%for row in this.schema.transformer.new_sample_data_display:%}
+    <tr>
+      {%for col in row:%}
+        <td style="text-align: left;">{{col}}</td>
+      {%endfor%}
+    </tr>
+    {%endfor%}
+  </table>
+{% else %}
+  [Build Rosie pattern to display new column(s)]
+{% endif %}

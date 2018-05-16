@@ -3,73 +3,13 @@
   <br>
   <div class="panel panel-primary" style="width: 48%; float: left; margin: 1%;">
     <div class="panel-heading">Build Rosie Pattern to Create New Column(s) From Selected Column</div>
-    <div class="panel-body" style="height: 200px; overflow: auto;">
-      <style>
-      p {
-        text-indent: 4.0em;
-      }
-      </style>
-      {% if this.schema.transformer.components == None%}
-        <div class="search">
-          Enter Rosie Pattern: <br/>
-          <input type="text" style="width: 250px;" id="pat{{prefix}}" class="searchTerm">
-          <br>
-          <br>
-          <button type="submit" pd_script="self.schema.set_transform_components('$val(pat{{prefix}})')" pd_options="transform={{transform}}">Extract Variables</button>
-          <button type="submit" pd_script="self.schema.suggest_destructuring({{transform}})" pd_options="transform={{transform}}">Use Suggestion</button>
-        </div>
-      {% else %}
-        <div class="search">
-          Enter Rosie Pattern: <br/>
-          <input type="text" style="width: 250px;" id="pat{{prefix}}" class="searchTerm" value="{{this.schema.byteToStr(this.schema.transformer._pattern._definition)}}" readonly>
-        </div>
-        {%for comp in this.schema.transformer.components:%}
-          <p>
-            <input type="text" class="searchTerm" value="{{this.schema.byteToStr(comp._name)}}" readonly>
-            {% if comp._definition%}
-            <input type="text" id="comp{{loop.index0}}" class="searchTerm" value="{{this.schema.byteToStr(comp._definition)}}">
-            {% else %}
-            <input type="text" id="comp{{loop.index0}}" class="searchTerm" placeholder="Definition">
-            {% endif %}
-          </p>
-        {%endfor%}
-        <br>
-        <button type="submit" pd_options="transform={{transform}}">Clear
-          <pd_script type="preRun">
-            return confirm("Are you sure you want to clear your transformation?");
-          </pd_script>
-          <pd_script>
-            self.schema.clear_transform();
-          </pd_script>
-        </button>
-        <button type="submit" pd_options="transform={{transform}}">Create Columns
-          <pd_script>
-for idx,comp in enumerate(self.schema.transformer.components):
-  if (idx == 0):
-    comp._definition = bytes23("$val(comp0)")
-  elif (idx == 1):
-    comp._definition = bytes23("$val(comp1)")
-  elif (idx == 2):
-    comp._definition = bytes23("$val(comp2)")
-  elif (idx == 3):
-    comp._definition = bytes23("$val(comp3)")
-self.schema.new_columns()
-          </pd_script>
-        </button>
-      {% endif %}
+    <div id="pattern_panel{{prefix}}" class="panel-body" style="height: 200px; overflow: auto;">
     </div>
   </div>
 
   <div class="panel panel-primary" style="width: 48%; float: left; margin: 1%;">
     <div class="panel-heading">Get Help With Rosie</div>
-    <div class="panel-body" style="height: 200px; overflow: auto;">
-      {% if this.schema.transformer.components == None%}
-        Enter a Rosie pattern line with variables that correspond to the new column(s) that will be created from the selected columnn. In the next step you will define a pattern for each of the specified variables. See an example with the link below:
-      {% else %}
-        Define a Rosie pattern for each of the extracted variables. See an example with the link below:
-      {% endif %}
-      <br><br>
-      <a href="https://github.com/jamiejennings/rosie-pattern-language/blob/master/doc/raisondetre.md">Rosie Documentation</a>
+    <div id="help_panel{{prefix}}" class="panel-body" style="height: 200px; overflow: auto;">
     </div>
   </div>
   <br><br>
@@ -83,9 +23,9 @@ self.schema.new_columns()
         {%for row in this.schema.sample_data:%}
           <tr>
             {%for col in row:%}
-            {% if loop.index0 == transform|int %}
-            <td style="text-align: left;">{{col}}</td>
-            {% endif %}
+              {% if loop.index0 == transform|int %}
+                <td style="text-align: left;">{{col}}</td>
+              {% endif %}
             {%endfor%}
           </tr>
         {%endfor%}
@@ -94,35 +34,9 @@ self.schema.new_columns()
   </div>
   <div class="panel panel-primary" style="width: 48%; float: left; margin: 1%;">
     <div class="panel-heading">Sample of New Column(s)</div>
-    <div class="panel-body" style="height: 400px; overflow: auto;">
-      {% if this.schema.transformer.errors %}
-        <font color = "red">Error Message: <br> {{this.schema.transformer.errors}}</font>
-      {% elif this.schema.transformer.new_sample_data %}
-      <table class="table table-bordered table-striped">
-        <thead>
-          {%for comp in this.schema.transformer.components:%}
-            <th style="text-align: left;">{{this.schema.byteToStr(comp._name)}}</th>
-          {%endfor%}
-        </thead>
-        {%for row in this.schema.transformer.new_sample_data_display:%}
-        <tr>
-          {%for col in row:%}
-            <td style="text-align: left;">{{col}}</td>
-          {%endfor%}
-        </tr>
-        {%endfor%}
-      </table>
-      {% else %}
-        [Build Rosie pattern to display new column(s)]
-      {% endif %}
+    <div id="newColumns_panel{{prefix}}" class="panel-body" style="height: 400px; overflow: auto;">
     </div>
   </div>
-  <div style="margin: 1%;">
-    <input class="btn btn-primary" style="font-size: 12px;" pd_options="home=true" type="button" value="Cancel">
-    {% if this.schema.transformer.new_sample_data %}
-      <button class="btn btn-primary" style="font-size: 12px;" type="submit" pd_script="self.schema.commit_new_columns()" pd_options="home=true">Commit Columns</button>
-    {% else %}
-      <button class="btn btn-primary" style="font-size: 12px;" type="submit" disabled>Commit Columns</button>
-    {% endif %}
+  <div id="transform_buttons{{prefix}}" style="margin: 1%;">
   </div>
 </div>

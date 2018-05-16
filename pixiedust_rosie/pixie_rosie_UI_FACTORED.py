@@ -41,3 +41,19 @@ class PixieRosieApp:
     @route(finish="*")
     def finish_screen(self, finish):
         return self.env.getTemplate("finish_screen.html")
+
+    @route(pattern="*")
+    def pattern_panel(self, pattern):
+        return self.env.getTemplate("pattern_panel.html")
+
+    @route(help="*")
+    def help_panel(self, help):
+        return self.env.getTemplate("help_panel.html")
+
+    @route(newColumns="*")
+    def newColumns_panel(self, newColumns):
+        return self.env.getTemplate("newColumns_panel.html")
+
+    @route(tranButtons="*")
+    def transform_buttons(self, tranButtons):
+        return self.env.getTemplate("transform_buttons.html")

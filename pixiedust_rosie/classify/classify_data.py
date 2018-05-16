@@ -18,9 +18,11 @@
 
 from __future__ import unicode_literals, print_function
 
-import pixiedust_rosie.classify.rosie_matcher, pixiedust_rosie.classify.destructure
-import sys, os, json, tempfile, csv
+import pixiedust_rosie.classify.rosie_matcher as rm, pixiedust_rosie.classify.destructure
+from pixiedust.utils.shellAccess import ShellAccess
+import sys, os, json, tempfile, csv, pandas
 from .adapt23 import *
+from IPython.display import display, Javascript
 
 # ------------------------------------------------------------------
 # Error messages
@@ -62,7 +64,7 @@ def most_specific(match):
     return match
 
 def capture(ref):
-    return not rosie_matcher.no_capture(extract_refname(ref))
+    return not rm.no_capture(extract_refname(ref))
 
 def extract_refname(ref):
     ref = ref['ref']
@@ -74,7 +76,7 @@ def extract_refname(ref):
 def potentially_unbound(ref):
     ref = ref['ref']
     return ( (not 'packagename' in ref) and
-             (not rosie_matcher.builtin(ref['localname'])) )
+             (not rm.builtin(ref['localname'])) )
 
 # TODO Should use itertools.compress for this:
 def apply_visibility(data, visibility_mask):
@@ -133,7 +135,7 @@ class Schema:
         self.transformer = None
         self.transformers = list()        # Committed transformations
         self._infer = None
-
+        self.file_path = None
     # ------------------------------------------------------------------
     # Process
     #
@@ -149,7 +151,7 @@ class Schema:
     # Process
     #
     def load_and_process(self):
-        self.matcher = rosie_matcher.Matcher()
+        self.matcher = rm.Matcher()
         self.load_sample_data()
         assert(self.sample_data)
         self.set_number_of_cols()
@@ -238,8 +240,7 @@ class Schema:
             assert(len(row) == len(self.column_visibility))
             writer.writerow(apply_visibility(row, self.column_visibility))
         fout.close()
-        self.output_path = pathname
-        return pathname, None
+        self.file_path = pathname
 
     # ------------------------------------------------------------------
     # We can be smarter about this in the future
@@ -316,6 +317,7 @@ class Schema:
                 if existing:
                     c._definition = existing._definition
         self.transformer.components = new_components
+        self.transformer.errors = None
         return True
 
     # ------------------------------------------------------------------
@@ -545,6 +547,19 @@ class Schema:
         self.transformer.new_sample_data = None
         self.transformer.new_sample_data_display = None
         self.transformer.errors = None
+
+    def create_finish_cell(self):
+        if not self.file_path:
+            return
+        df_result = pandas.read_csv(self.file_path)
+        var_name = "wrangled_df"
+        counter = 1
+        while (ShellAccess[var_name] is not None):
+            var_name = "wrangled_df" + str(counter)
+            counter += 1
+        ShellAccess[var_name] = df_result
+        js = "code = IPython.notebook.insert_cell_below(\'code\'); code.set_text(\"display(" + var_name + ")\");"
+        display(Javascript(js))
 
 # ------------------------------------------------------------------
 # Transform: Everything needed to transform a column of data into one
