@@ -18,7 +18,7 @@
 
 from __future__ import unicode_literals, print_function
 
-import pixiedust_rosie.classify.rosie_matcher as rm, pixiedust_rosie.classify.destructure
+import pixiedust_rosie.classify.rosie_matcher as rm, pixiedust_rosie.classify.destructure as des
 from pixiedust.utils.shellAccess import ShellAccess
 import sys, os, json, tempfile, csv, pandas
 from .adapt23 import *
@@ -522,7 +522,7 @@ class Schema:
         self.colnames[colnum] = new_name
 
     def suggest_destructuring(self, colnum):
-        self._infer = self._infer or destructure.finder(self.matcher)
+        self._infer = self._infer or des.finder(self.matcher)
         if isinstance(self._infer, Exception):
             return False, self._infer
         column_data, err = self.get_column(colnum)
@@ -536,7 +536,8 @@ class Schema:
         self.transformer = Transform(colnum, pattern_definition)
         self.transformer.destructuring = True
         self.transformer.components = map23(lambda name: Pattern(name, False), fields)
-        return tr, None
+        self.new_columns()
+
 
     def byteToStr(self, s):
         return str23(s)
@@ -544,9 +545,11 @@ class Schema:
     def clear_transform(self):
         self.transformer._pattern = None
         self.transformer.components = None
+        self.transformer.imports = None
+        self.transformer.errors = None
+        self.transformer.destructuring = False
         self.transformer.new_sample_data = None
         self.transformer.new_sample_data_display = None
-        self.transformer.errors = None
 
     def create_finish_cell(self):
         if not self.file_path:

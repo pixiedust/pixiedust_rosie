@@ -16,7 +16,7 @@
 
 from __future__ import unicode_literals, print_function
 from .adapt23 import *
-import pixiedust_rosie.classify.rosie_matcher
+import pixiedust_rosie.classify.rosie_matcher as rm
 
 class finder():
 
@@ -36,7 +36,7 @@ class finder():
     def from_datum(self, datum):
         m = self._matcher.match(self._tryall, datum.strip())
         if not m: return None, None
-        key = rosie_matcher.most_specific(m)
+        key = rm.most_specific(m)
         pattern_definition = bytes23('destructure.' + key['type'])
         if not key['subs']:
             component_names = list()
