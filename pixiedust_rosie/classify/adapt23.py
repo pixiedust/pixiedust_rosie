@@ -20,6 +20,7 @@ try:
     bytes23 = lambda s: bytes(s)
     zip23 = zip
     map23 = map
+    filter23 = filter
 except NameError:
     HAS_UNICODE_TYPE = False
     def bytes23(s):
@@ -40,4 +41,5 @@ except NameError:
         return list(zip(*args))
     def map23(fn, *args):
         return list(map(fn, *args))
-    
+    def filter23(fn, *args):
+        return list(filter(fn, *args))

@@ -18,11 +18,11 @@
 
 from __future__ import unicode_literals, print_function
 
-import pixiedust_rosie.classify.rosie_matcher as rm, pixiedust_rosie.classify.destructure as des
-from pixiedust.utils.shellAccess import ShellAccess
+from . import rosie_matcher as rm, destructure as des
+#from pixiedust.utils.shellAccess import ShellAccess
 import sys, os, json, tempfile, csv, pandas
 from .adapt23 import *
-from IPython.display import display, Javascript
+#from IPython.display import display, Javascript
 
 # ------------------------------------------------------------------
 # Error messages
@@ -152,7 +152,9 @@ class Schema:
     #
     def load_and_process(self):
         self.matcher = rm.Matcher()
-        self.load_sample_data()
+        ok, err = self.load_sample_data()
+        if not ok:
+            return False, err
         assert(self.sample_data)
         self.set_number_of_cols()
         assert(self.cols)
@@ -164,6 +166,7 @@ class Schema:
         self.assign_native_types()
         self.column_visibility = [True for _ in self.colnames]
         self.synthetic_column = [False for _ in self.colnames]
+        return True, None
 
     # ------------------------------------------------------------------
     # For csv only
@@ -218,7 +221,10 @@ class Schema:
                 return False, "Error compiling pattern:\n" + str(errs)
             compiled_patterns.append(pat)
         try:
-            fin = open(self.filename, newline='')
+            if HAS_UNICODE_TYPE:
+                fin = open(self.filename)
+            else:
+                fin = open(self.filename, newline='')
         except Exception as e:
             return False, "Could not open input file:\n" + str(e)
         # Skip reading the col names, which we already have
@@ -226,7 +232,10 @@ class Schema:
         try:
             tempdir = tempfile.gettempdir()
             pathname = os.path.join(tempdir, "wrangled_" + os.path.basename(self.filename))
-            fout = open(pathname, mode='w+t', newline='') # write, truncate, text mode
+            if HAS_UNICODE_TYPE:
+                fout = open(pathname, mode='w+t') # write, truncate, text mode
+            else:
+                fout = open(pathname, mode='w+t', newline='') # write, truncate, text mode
         except Exception as e:
             return False, "Could not open output file:\n" + str(e)
         writer = csv.writer(fout)
@@ -241,6 +250,7 @@ class Schema:
             writer.writerow(apply_visibility(row, self.column_visibility))
         fout.close()
         self.file_path = pathname
+        return pathname, None
 
     # ------------------------------------------------------------------
     # We can be smarter about this in the future
@@ -282,8 +292,7 @@ class Schema:
     # ------------------------------------------------------------------
     # Create a component pattern for each reference in the transformer pattern
     #
-    def set_transform_components(self, pat_definition_rpl):
-        self.transformer._pattern = Pattern(None, pat_definition_rpl)
+    def set_transform_components(self):
         if (not self.transformer._pattern) or (not self.transformer._pattern._definition):
             self.transformer.errors = error_no_pattern
             return False
@@ -293,11 +302,11 @@ class Schema:
             return False
         # Remove references to RPL aliases, like '.', which do not
         # capture anything (and thus will never appear in the output)
-        refs = filter(capture, refs)
+        refs = filter23(capture, refs)
         needing_definitions = map23(extract_refname,
-                                    filter(potentially_unbound, refs))
+                                    filter23(potentially_unbound, refs))
         not_needing_definitions = map23(extract_refname,
-                                        filter(lambda r: not potentially_unbound(r), refs))
+                                        filter23(lambda r: not potentially_unbound(r), refs))
 
         # TODO: filter out duplicates from the two lists above!
 
@@ -374,7 +383,12 @@ class Schema:
     # commit_new_columns.
 
     def new_columns(self):
+        if not self.transformer:
+            raise ValueError('self.transformer is not set')
         self.transformer.errors = None
+        if not self.transformer.destructuring:
+            if not self.set_transform_components():
+                return False
         if not self.set_transform_imports():
             return False
         if self.transformer.imports:
@@ -405,6 +419,7 @@ class Schema:
                 newcols[compnum].append(datum)
         self.transformer.new_sample_data = newcols
         self.transformer.new_sample_data_display = zip(*newcols)
+        return True
 
     # Commit the operation of self.transformer
     def commit_new_columns(self):
@@ -537,7 +552,7 @@ class Schema:
         self.transformer.destructuring = True
         self.transformer.components = map23(lambda name: Pattern(name, False), fields)
         self.new_columns()
-
+        return self.transformer, None
 
     def byteToStr(self, s):
         return str23(s)

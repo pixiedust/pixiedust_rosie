@@ -16,7 +16,7 @@
 
 from __future__ import unicode_literals, print_function
 from .adapt23 import *
-import pixiedust_rosie.classify.rosie_matcher as rm
+from . import rosie_matcher as rm
 
 class finder():
 
