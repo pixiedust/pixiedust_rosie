@@ -650,7 +650,8 @@ def map_type(rtype, type_map):
     elif rtype in type_map:
         conversion_fn = type_map[rtype]
     else:
-        raise ValueError('No defined transformation for Rosie type ' + repr(rtype))
+        #raise ValueError('No defined transformation for Rosie type ' + repr(rtype))
+        conversion_fn = str
     return conversion_fn
 
 # ----------------------------------------------------------------------------------------
