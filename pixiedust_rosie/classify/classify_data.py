@@ -19,10 +19,10 @@
 from __future__ import unicode_literals, print_function
 
 from . import rosie_matcher as rm, destructure as des
-#from pixiedust.utils.shellAccess import ShellAccess
+from pixiedust.utils.shellAccess import ShellAccess
 import sys, os, json, tempfile, csv, pandas
 from .adapt23 import *
-#from IPython.display import display, Javascript
+from IPython.display import display, Javascript
 
 # ------------------------------------------------------------------
 # Error messages
