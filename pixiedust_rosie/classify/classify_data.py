@@ -639,7 +639,9 @@ default_type_map = {Schema_any_type: str,
                     'num.float': float,
                     'num.mantissa': float,
                     'all.identifier': str,
-                    'word.any': str
+                    'word.any': str,
+                    'all.punct': str,
+                    'all.unmatched': str,
 }
 
 def map_type(rtype, type_map):
