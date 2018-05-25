@@ -17,6 +17,7 @@
 # To install rosie: pip install rosie
 
 from __future__ import unicode_literals, print_function
+import six
 import json, os, rosie
 from .adapt23 import *
 
@@ -61,6 +62,9 @@ class Matcher():
         self.csv_pattern, errs = self.engine.compile(b'csv.comma')
         self.all_pattern, errs = self.engine.compile(b'all.things')
 
+    def json_loads(self, data):
+        return json.loads(bytes23(data) if six.PY2 else str23(data))
+
     def import_pkg(self, pkgname):
         ok, _, messages = self.engine.import_pkg(bytes23(pkgname))
         if not ok:
@@ -79,13 +83,13 @@ class Matcher():
     def csv(self, raw_data):
         data, leftover, abend, t0, t1 = self.engine.match(self.csv_pattern, bytes23(raw_data), 1, b"json")
         if data:
-            return json.loads(data)
+            return self.json_loads(data)
         raise RuntimeError("pattern 'csv' failed to match: " + raw_data)
 
     def all(self, raw_data):
         data, leftover, abend, t0, t1 = self.engine.match(self.all_pattern, bytes23(raw_data), 1, b"json")
         if data:
-            return json.loads(data)
+            return self.json_loads(data)
         raise RuntimeError("pattern 'all' failed to match: " + raw_data)
 
     def compile(self, expression, optional_rpl = None):
@@ -99,7 +103,7 @@ class Matcher():
     def match(self, compiled_pattern, raw_data):
         data, leftover, abend, t0, t1 = self.engine.match(compiled_pattern, bytes23(raw_data), 1, b"json")
         if data and (not abend):
-            return json.loads(data)
+            return self.json_loads(data)
         return None
 
     def extract(self, match_result, component_name):
@@ -116,17 +120,17 @@ class Matcher():
     def expression_refs(self, expression):
         refs, errs = self.engine.expression_refs(expression)
         if refs:
-            return json.loads(refs), errs
+            return self.json_loads(refs), errs
         elif errs:
-            return refs, json.loads(errs)
+            return refs, self.json_loads(errs)
         else:
             return None, None
 
     def expression_deps(self, expression):
         deps, errs = self.engine.expression_deps(expression)
         if deps:
-            return json.loads(deps), errs
+            return self.json_loads(deps), errs
         elif errs:
-            return deps, json.loads(errs)
+            return deps, self.json_loads(errs)
         else:
             return None, None

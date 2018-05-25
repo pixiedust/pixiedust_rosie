@@ -1,0 +1,5 @@
+recursive-include pixiedust_rosie templates/*
+recursive-exclude * __pycache__
+recursive-exclude * *.pyc
+recursive-exclude * *.pyo
+recursive-exclude * *.orig
