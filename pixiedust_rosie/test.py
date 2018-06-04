@@ -227,6 +227,7 @@ def test():
     print("Let's try to INFER a destructing for column 25")
 
     tr3, err = s.suggest_destructuring(25)
+    print('***', repr(err))
     assert( tr3 )
     assert( not err )
 
@@ -277,6 +278,13 @@ def test():
         print(err)
     else:
         print(filename)
+
+
+    print()
+    print('Here are the columns with suggested destructuring:')
+    for col, transform in enumerate(s.suggested_destructuring):
+        if transform: print(col, transform._pattern._definition)
+
 
 # ---------------------------------------------------------------------------------------------------
     sys.exit(0)

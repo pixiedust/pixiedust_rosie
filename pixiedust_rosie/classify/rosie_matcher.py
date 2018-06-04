@@ -17,7 +17,6 @@
 # To install rosie: pip install rosie
 
 from __future__ import unicode_literals, print_function
-import six
 import json, os, rosie
 from .adapt23 import *
 
@@ -63,7 +62,7 @@ class Matcher():
         self.all_pattern, errs = self.engine.compile(b'all.things')
 
     def json_loads(self, data):
-        return json.loads(bytes23(data) if six.PY2 else str23(data))
+        return json.loads(data)
 
     def import_pkg(self, pkgname):
         ok, _, messages = self.engine.import_pkg(bytes23(pkgname))

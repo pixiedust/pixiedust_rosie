@@ -43,14 +43,14 @@ class finder():
         else:
             component_names = map23(lambda sub: sub['type'], key['subs'])
             # HACK?  Need to think about what we want to do for 'rest' of the data.
-            component_names = filter(lambda name: name != 'rest', component_names)
+            component_names = filter23(lambda name: name != 'rest', component_names)
         return pattern_definition, component_names
 
     def fields(self, submatches):
         if not submatches: return list()
-        return list(map(lambda s: s['data'],
-                        [ sub for sub in submatches
-                          if (sub['type'] not in self._separators and (sub['type'] != 'rest' or sub['data'] != '')) ] ))
+        return map23(lambda s: s['data'],
+                     [ sub for sub in submatches
+                       if (sub['type'] not in self._separators and (sub['type'] != 'rest' or sub['data'] != '')) ] )
 
 
 _rpl = b'''

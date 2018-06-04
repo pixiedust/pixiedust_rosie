@@ -78,7 +78,7 @@ def potentially_unbound(ref):
     return ( (not 'packagename' in ref) and
              (not rm.builtin(ref['localname'])) )
 
-# TODO Should use itertools.compress for this:
+# TODO Use itertools.compress for this:
 def apply_visibility(data, visibility_mask):
     temp = zip23(data, visibility_mask)
     return map23(lambda p: p[0], filter(lambda p: p[1], temp))
@@ -164,6 +164,7 @@ class Schema:
         self.resolve_type_ambiguities()
         assert(len(self.rosie_types)==self.cols)
         self.assign_native_types()
+        self.suggested_destructuring = [self.suggest_destructuring(col)[0] for col in range(self.cols)]
         self.column_visibility = [True for _ in self.colnames]
         self.synthetic_column = [False for _ in self.colnames]
         return True, None
@@ -440,6 +441,8 @@ class Schema:
             self.colnames.insert(newcolnum, cn)
             self.rosie_types.insert(newcolnum, cn)
             self.synthetic_column.insert(newcolnum, True)
+            # For now, we will not run suggest_destructuring() on a generated (synthetic) column
+            self.suggested_destructuring.insert(newcolnum, None)
             if not (cn in self.type_map):
                 # Use a default native type, which the user can change later
                 self.type_map[cn] = str
@@ -545,6 +548,8 @@ class Schema:
         column_data, err = self.get_column(colnum)
         if not column_data:
             return False, err
+        if not column_data[0]:
+            return None, None
         pattern_definition, fields = self._infer.from_datum(column_data[0])
         if not pattern_definition:
             return None, None
