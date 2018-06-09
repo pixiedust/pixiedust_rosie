@@ -136,6 +136,8 @@ class Schema:
         self.transformers = list()        # Committed transformations
         self._infer = None
         self.file_path = None
+        self.suggested_destructuring = None
+        self.df_var = None
     # ------------------------------------------------------------------
     # Process
     #
@@ -165,6 +167,7 @@ class Schema:
         assert(len(self.rosie_types)==self.cols)
         self.assign_native_types()
         self.suggested_destructuring = [self.suggest_destructuring(col)[0] for col in range(self.cols)]
+        self.transformer = None
         self.column_visibility = [True for _ in self.colnames]
         self.synthetic_column = [False for _ in self.colnames]
         return True, None
@@ -577,14 +580,15 @@ class Schema:
         if not self.file_path:
             return
         df_result = pandas.read_csv(self.file_path)
-        var_name = "wrangled_df"
         counter = 1
-        while (ShellAccess[var_name] is not None):
-            var_name = "wrangled_df" + str(counter)
+        self.df_var = "wrangled_df"
+        while (ShellAccess[self.df_var] is not None):
+            self.df_var = "wrangled_df" + str(counter)
             counter += 1
-        ShellAccess[var_name] = df_result
-        js = "code = IPython.notebook.insert_cell_below(\'code\'); code.set_text(\"display(" + var_name + ")\");"
+        ShellAccess[self.df_var] = df_result
+        js = "code = IPython.notebook.insert_cell_below(\'code\'); code.set_text(\"display(" + self.df_var + ")\");"
         display(Javascript(js))
+
 
 # ------------------------------------------------------------------
 # Transform: Everything needed to transform a column of data into one

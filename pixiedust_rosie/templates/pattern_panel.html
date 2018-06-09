@@ -9,15 +9,16 @@
     <br>
     <input type="text" style="width: 250px;" id="pat{{prefix}}" class="searchTerm">
     <br><br>
-    <button type="submit" pd_script="self.schema.set_transform_components('$val(pat{{prefix}})')">Extract Variables
-      <target pd_target="pattern_panel{{prefix}}" pd_options="pattern=true"/>
+    <button style="background: #e7e7e7;" type="submit" pd_script="self.schema.set_transform_components('$val(pat{{prefix}})')">Extract Variables
+      <target pd_target="pattern_panel{{prefix}}" pd_options="pattern={{pattern}}"/>
       <target pd_target="help_panel{{prefix}}" pd_options="help=true"/>
       <target pd_target="newColumns_panel{{prefix}}" pd_options="newColumns=true"/>
     </button>
-    <button type="submit" pd_script="self.schema.suggest_destructuring({{transform}})">Use Suggestion
-      <target pd_target="pattern_panel{{prefix}}" pd_options="pattern=true"/>
+    <button style="background: #e7e7e7; {{ 'opacity: 0.5; cursor: not-allowed;' if this.schema.suggested_destructuring[pattern|int] is none}}" type="submit" pd_script="self.schema.suggest_destructuring({{pattern|int}})" {{ 'disabled' if this.schema.suggested_destructuring[pattern|int] is none}}>Use Suggestion
+      <target pd_target="pattern_panel{{prefix}}" pd_options="pattern={{pattern}}"/>
       <target pd_target="help_panel{{prefix}}" pd_options="help=true"/>
       <target pd_target="newColumns_panel{{prefix}}" pd_options="newColumns=true"/>
+      <target pd_target="transform_buttons{{prefix}}" pd_options="tranButtons=true"/>
     </button>
   </div>
 {% else %}
@@ -29,7 +30,9 @@
   {%for comp in this.schema.transformer.components:%}
     <p>
       <input type="text" class="searchTerm" value="{{this.schema.byteToStr(comp._name)}}" disabled></input>
-      <input type="text" id="comp{{loop.index0}}" class="searchTerm" placeholder="{{this.schema.byteToStr(comp._definition) if comp._definition else 'Definition'}}">
+      {% if this.schema.transformer.destructuring == False%}
+        <input type="text" id="comp{{loop.index0}}" class="searchTerm" placeholder="{{this.schema.byteToStr(comp._definition) if comp._definition else 'Definition'}}">
+      {% endif %}
         <pd_script>
 from pixiedust_rosie.classify.adapt23 import *
 self.schema.transformer.components[{{loop.index0}}]._definition = bytes23('$val(comp{{loop.index0}})')
@@ -38,8 +41,8 @@ self.schema.transformer.components[{{loop.index0}}]._definition = bytes23('$val(
     </p>
   {%endfor%}
   <br>
-  <button type="submit">Clear
-    <target pd_target="pattern_panel{{prefix}}" pd_options="pattern=true"/>
+  <button style="background: #e7e7e7;" type="submit">Clear
+    <target pd_target="pattern_panel{{prefix}}" pd_options="pattern={{pattern}}"/>
     <target pd_target="help_panel{{prefix}}" pd_options="help=true"/>
     <target pd_target="newColumns_panel{{prefix}}" pd_options="newColumns=true"/>
     <pd_script type="preRun">
@@ -49,9 +52,7 @@ self.schema.transformer.components[{{loop.index0}}]._definition = bytes23('$val(
       self.schema.clear_transform();
     </pd_script>
   </button>
-  <button type="submit" pd_script="self.schema.new_columns()" pd_options="transform={{transform}}">Create Columns
-    <target pd_target="pattern_panel{{prefix}}" pd_options="pattern=true"/>
-    <target pd_target="help_panel{{prefix}}" pd_options="help=true"/>
+  <button style="background: #e7e7e7; {{ 'opacity: 0.5; cursor: not-allowed;' if this.schema.transformer.destructuring}}" type="submit" pd_script="self.schema.new_columns()" pd_options="transform={{transform}}" {{ 'disabled' if this.schema.transformer.destructuring }}>Create Columns
     <target pd_target="newColumns_panel{{prefix}}" pd_options="newColumns=true"/>
     <target pd_target="transform_buttons{{prefix}}" pd_options="tranButtons=true"/>
   </button>

@@ -57,3 +57,7 @@ class PixieRosieApp:
     @route(tranButtons="*")
     def transform_buttons(self, tranButtons):
         return self.env.getTemplate("transform_buttons.html")
+
+    @route(suggested="*")
+    def suggested_screen(self, suggested):
+        return self.env.getTemplate("suggested_screen.html")

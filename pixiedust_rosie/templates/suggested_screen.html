@@ -1,0 +1,26 @@
+<div class="well">
+    Would you like to use the suggested transformation?
+    <br><br>
+    <button class="btn btn-primary" style="font-size: 12px;" type="submit">No
+      <target pd_target="main_screen{{prefix}}" pd_options="transform={{suggested}}"/>
+      <target pd_target="pattern_panel{{prefix}}" pd_options="pattern={{suggested}}"/>
+      <target pd_target="help_panel{{prefix}}" pd_options="help=true"/>
+      <target pd_target="newColumns_panel{{prefix}}" pd_options="newColumns=true"/>
+      <target pd_target="transform_buttons{{prefix}}" pd_options="tranButtons=true"/>
+      <pd_script>
+import pixiedust_rosie.classify.classify_data as cd
+self.schema.transformer=cd.Transform({{suggested|int}})
+      </pd_script>
+    </button>
+
+    <button class="btn btn-primary" style="font-size: 12px;" type="submit">Yes
+      <target pd_target="main_screen{{prefix}}" pd_options="transform={{suggested}}"/>
+      <target pd_target="pattern_panel{{prefix}}" pd_options="pattern={{suggested}}"/>
+      <target pd_target="help_panel{{prefix}}" pd_options="help=true"/>
+      <target pd_target="newColumns_panel{{prefix}}" pd_options="newColumns=true"/>
+      <target pd_target="transform_buttons{{prefix}}" pd_options="tranButtons=true"/>
+      <pd_script>
+        self.schema.suggest_destructuring({{suggested|int}})
+      </pd_script>
+    </button>
+</div>
