@@ -285,6 +285,34 @@ def test():
     for col, transform in enumerate(s.suggested_destructuring):
         if transform: print(col, transform._pattern._definition)
 
+# -----------------------------------------------------------------------------
+
+    print()
+    print("** Ensure that we can use literal strings in a pattern **")
+
+    s.transformer = classify_data.Transform(10, '"Prevalence of" disease')
+    s.set_transform_components()
+    print(map23(lambda p: (p._name, p._definition), s.transformer.components))
+    
+    assert(len(s.transformer.components) == 1)
+    pat = s.transformer.components[0]
+    assert(pat._name == b'disease')
+    assert(pat._definition is None)
+    pat._definition = b'keepto:(>"among")'
+
+    s.new_columns()
+    new = s.transformer.new_sample_data
+    assert( new )
+    assert( s.transformer.errors is None )
+
+    print('*** pattern:', s.transformer._pattern._definition)
+    print('*** components:', map23(lambda c: (c._name, c._definition), s.transformer.components))
+    print('*** imports:', s.transformer.imports)
+    
+    print(new)
+
+    s.commit_new_columns()
+    classify_data.print_sample_data_verbosely(s, 9)    
 
 # ---------------------------------------------------------------------------------------------------
     sys.exit(0)
