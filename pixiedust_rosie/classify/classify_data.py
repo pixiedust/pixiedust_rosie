@@ -23,6 +23,7 @@ from pixiedust.utils.shellAccess import ShellAccess
 import sys, os, json, tempfile, csv, pandas
 from .adapt23 import *
 from IPython.display import display, Javascript
+import html
 
 # ------------------------------------------------------------------
 # Error messages
@@ -298,7 +299,8 @@ class Schema:
     #
     def set_transform_components(self, pat_definition_rpl=None):
         if pat_definition_rpl:
-            self.transformer._pattern = Pattern(None, pat_definition_rpl)
+            self.transformer.pat = pat_definition_rpl
+            self.transformer._pattern = Pattern(None, html.unescape(pat_definition_rpl))
         if (not self.transformer._pattern) or (not self.transformer._pattern._definition):
             self.transformer.errors = error_no_pattern
             return False
@@ -607,6 +609,7 @@ class Transform:
         self.destructuring = False
         self.new_sample_data = None
         self.new_sample_data_display = None
+        self.pat = None
 
     def generate_rpl(self):
         rpl = b''

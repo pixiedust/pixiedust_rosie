@@ -25,7 +25,7 @@
   <div class="search">
     Enter Rosie Pattern:
     <br>
-    <input type="text" style="width: 250px;" id="pat{{prefix}}" class="searchTerm" value="{{this.schema.byteToStr(this.schema.transformer._pattern._definition)}}" disabled>
+    <input type="text" style="width: 250px;" id="pat{{prefix}}" class="searchTerm" value="{{this.schema.byteToStr(this.schema.transformer._pattern._definition) if this.schema.transformer.destructuring else this.schema.byteToStr(this.schema.transformer.pat)}}" disabled>
   </div>
   {%for comp in this.schema.transformer.components:%}
     <p>
@@ -34,8 +34,9 @@
         <input type="text" id="comp{{loop.index0}}" class="searchTerm" placeholder="{{this.schema.byteToStr(comp._definition) if comp._definition else 'Definition'}}">
       {% endif %}
         <pd_script>
+import html
 from pixiedust_rosie.classify.adapt23 import *
-self.schema.transformer.components[{{loop.index0}}]._definition = bytes23('$val(comp{{loop.index0}})')
+self.schema.transformer.components[{{loop.index0}}]._definition = bytes23(html.unescape('$val(comp{{loop.index0}})'))
         </pd_script>
       </input>
     </p>
