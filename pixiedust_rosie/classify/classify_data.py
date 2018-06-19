@@ -20,10 +20,9 @@ from __future__ import unicode_literals, print_function
 
 from . import rosie_matcher as rm, destructure as des
 from pixiedust.utils.shellAccess import ShellAccess
-import sys, os, json, tempfile, csv, pandas
+import sys, os, json, tempfile, csv, pandas, html
 from .adapt23 import *
 from IPython.display import display, Javascript
-import html
 
 # ------------------------------------------------------------------
 # Error messages
@@ -168,7 +167,6 @@ class Schema:
         assert(len(self.rosie_types)==self.cols)
         self.assign_native_types()
         self.suggested_destructuring = [self.suggest_destructuring(col)[0] for col in range(self.cols)]
-        self.transformer = None
         self.column_visibility = [True for _ in self.colnames]
         self.synthetic_column = [False for _ in self.colnames]
         return True, None
@@ -299,7 +297,6 @@ class Schema:
     #
     def set_transform_components(self, pat_definition_rpl=None):
         if pat_definition_rpl:
-            self.transformer.pat = pat_definition_rpl
             self.transformer._pattern = Pattern(None, html.unescape(pat_definition_rpl))
         if (not self.transformer._pattern) or (not self.transformer._pattern._definition):
             self.transformer.errors = error_no_pattern
@@ -348,24 +345,24 @@ class Schema:
             return RuntimeError(error_parsing(errs))
         return imports or list()
 
-    def set_transform_imports(self):
-        imports = self.find_imports(self.transformer._pattern._definition)
+    def set_transform_imports(self, transformer):
+        imports = self.find_imports(transformer._pattern._definition)
         if isinstance(imports, RuntimeError):
-            self.transformer.errors = str(imports)
+            transformer.errors = str(imports)
             return False
-        self.transformer.imports = imports
+        transformer.imports = imports
         final_status = True
-        for pat in self.transformer.components:
+        for pat in transformer.components:
             if pat._definition is not False:
                 imports = self.find_imports(pat._definition)
                 if isinstance(imports, RuntimeError):
-                    if self.transformer.errors:
-                        self.transformer.errors = self.transformer.errors  + '\n' + str(imports)
+                    if transformer.errors:
+                        transformer.errors = transformer.errors  + '\n' + str(imports)
                     else:
-                        self.transformer.errors = str(imports)
+                        transformer.errors = str(imports)
                     final_status = False
                 else:
-                    if imports: self.transformer.imports.extend(imports)
+                    if imports: transformer.imports.extend(imports)
         return final_status
 
     # ------------------------------------------------------------------
@@ -390,43 +387,43 @@ class Schema:
     # Schema.  To change the Schema to include them, use
     # commit_new_columns.
 
-    def new_columns(self):
-        if not self.transformer:
-            raise ValueError('self.transformer is not set')
-        self.transformer.errors = None
-        if not self.transformer.destructuring:
+    def new_columns(self, transformer):
+        if not transformer:
+            raise ValueError('transformer is not set')
+        transformer.errors = None
+        if not transformer.destructuring:
             if not self.set_transform_components():
                 return False
-        if not self.set_transform_imports():
+        if not self.set_transform_imports(transformer):
             return False
-        if self.transformer.imports:
-            for pkg in self.transformer.imports:
+        if transformer.imports:
+            for pkg in transformer.imports:
                 ok, _, errs = self.matcher.engine.load(bytes23('import ' + pkg))
                 if not ok:
-                    self.transformer.errors = error_missing_dependency(pkg, errs)
-        optional_rpl = self.transformer.generate_rpl()
+                    transformer.errors = error_missing_dependency(pkg, errs)
+        optional_rpl = transformer.generate_rpl()
         if optional_rpl:
             ok, _, errs = self.matcher.engine.load(bytes23(optional_rpl))
             if not ok:
-                self.transformer.errors = error_loading_rpl(errs)
+                transformer.errors = error_loading_rpl(errs)
                 return False
-        pat, errs = self.matcher.engine.compile(bytes23(self.transformer._pattern._definition))
+        pat, errs = self.matcher.engine.compile(bytes23(transformer._pattern._definition))
         if not pat:
-            self.transformer.errors = error_compiling(errs)
+            transformer.errors = error_compiling(errs)
             return False
-        colnum = self.transformer._colnum
-        component_names = map23(lambda c: str23(c._name), self.transformer.components)
+        colnum = transformer._colnum
+        component_names = map23(lambda c: str23(c._name), transformer.components)
         newcols = list(map23(lambda cn: list(), component_names))
         for rownum, row in enumerate(self.sample_data):
             m = self.matcher.match(pat, row[colnum])
             for compnum, cn in enumerate(component_names):
-                if self.transformer.destructuring:
+                if transformer.destructuring:
                     datum = m['subs'][compnum]['data']
                 else:
                     datum = self.matcher.extract(m, cn)
                 newcols[compnum].append(datum)
-        self.transformer.new_sample_data = newcols
-        self.transformer.new_sample_data_display = zip(*newcols)
+        transformer.new_sample_data = newcols
+        transformer.new_sample_data_display = zip23(*newcols)
         return True
 
     # Commit the operation of self.transformer
@@ -560,23 +557,14 @@ class Schema:
             return None, None
         if not fields:
             return None, None
-        self.transformer = Transform(colnum, pattern_definition)
-        self.transformer.destructuring = True
-        self.transformer.components = map23(lambda name: Pattern(name, False), fields)
-        self.new_columns()
-        return self.transformer, None
+        transformer = Transform(colnum, pattern_definition)
+        transformer.destructuring = True
+        transformer.components = map23(lambda name: Pattern(name, False), fields)
+        self.new_columns(transformer)
+        return transformer, None
 
     def byteToStr(self, s):
         return str23(s)
-
-    def clear_transform(self):
-        self.transformer._pattern = None
-        self.transformer.components = None
-        self.transformer.imports = None
-        self.transformer.errors = None
-        self.transformer.destructuring = False
-        self.transformer.new_sample_data = None
-        self.transformer.new_sample_data_display = None
 
     def create_finish_cell(self):
         if not self.file_path:
@@ -588,7 +576,7 @@ class Schema:
             self.df_var = "wrangled_df" + str(counter)
             counter += 1
         ShellAccess[self.df_var] = df_result
-        js = "code = IPython.notebook.insert_cell_below(\'code\'); code.set_text(\"display(" + self.df_var + ")\");"
+        js = "code = IPython.notebook.insert_cell_below(\'code\'); code.set_text(\"" + "#Code generated by pixiedust_rosie\\n" + "display(" + self.df_var + ")\");"
         display(Javascript(js))
 
 
@@ -609,7 +597,6 @@ class Transform:
         self.destructuring = False
         self.new_sample_data = None
         self.new_sample_data_display = None
-        self.pat = None
 
     def generate_rpl(self):
         rpl = b''

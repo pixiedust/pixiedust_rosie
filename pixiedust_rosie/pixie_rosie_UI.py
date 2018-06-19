@@ -28,36 +28,36 @@ class PixieRosieApp:
 
     @route()
     def main(self):
-        return self.env.getTemplate("main_screen_ui.html")
+        return self.env.getTemplate("schema_screen.html")
 
-    @route(modify="*")
-    def modify_screen(self, modify):
+    @route(modify_state="*")
+    def modify_screen(self, modify_state):
         return self.env.getTemplate("modify_screen.html")
 
-    @route(transform="*")
-    def transform_screen(self, transform):
+    @route(transform_state="*")
+    def transform_screen(self, transform_state):
         return self.env.getTemplate("transform_screen.html")
 
-    @route(finish="*")
-    def finish_screen(self, finish):
+    @route(suggestion_state="*")
+    def suggestion_screen(self, suggestion_state):
+        return self.env.getTemplate("suggestion_screen.html")
+
+    @route(finish_state="*")
+    def finish_screen(self, finish_state):
         return self.env.getTemplate("finish_screen.html")
 
-    @route(pattern="*")
-    def pattern_panel(self, pattern):
+    @route(pattern_state="*")
+    def pattern_panel(self, pattern_state):
         return self.env.getTemplate("pattern_panel.html")
 
-    @route(help="*")
-    def help_panel(self, help):
+    @route(help_state="*")
+    def help_panel(self, help_state):
         return self.env.getTemplate("help_panel.html")
 
-    @route(newColumns="*")
-    def newColumns_panel(self, newColumns):
+    @route(newColumns_state="*")
+    def newColumns_panel(self, newColumns_state):
         return self.env.getTemplate("newColumns_panel.html")
 
-    @route(tranButtons="*")
-    def transform_buttons(self, tranButtons):
+    @route(tranButtons_state="*")
+    def transform_buttons(self, tranButtons_state):
         return self.env.getTemplate("transform_buttons.html")
-
-    @route(suggested="*")
-    def suggested_screen(self, suggested):
-        return self.env.getTemplate("suggested_screen.html")

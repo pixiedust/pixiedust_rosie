@@ -14,7 +14,7 @@
 # limitations under the License.
 # -------------------------------------------------------------------------------
 from pixiedust.utils.sampleData import Downloader, SampleData, dataDefs
-from .pixie_rosie_UI_FACTORED import PixieRosieApp
+from .pixie_rosie_UI import PixieRosieApp
 
 def wrangle_data(url=None):
     """

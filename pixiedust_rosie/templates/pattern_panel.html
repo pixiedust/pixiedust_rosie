@@ -10,22 +10,22 @@
     <input type="text" style="width: 250px;" id="pat{{prefix}}" class="searchTerm">
     <br><br>
     <button style="background: #e7e7e7;" type="submit" pd_script="self.schema.set_transform_components('$val(pat{{prefix}})')">Extract Variables
-      <target pd_target="pattern_panel{{prefix}}" pd_options="pattern={{pattern}}"/>
-      <target pd_target="help_panel{{prefix}}" pd_options="help=true"/>
-      <target pd_target="newColumns_panel{{prefix}}" pd_options="newColumns=true"/>
+      <target pd_target="pattern_panel{{prefix}}" pd_options="pattern_state={{pattern_state}}"/>
+      <target pd_target="help_panel{{prefix}}" pd_options="help_state=true"/>
+      <target pd_target="newColumns_panel{{prefix}}" pd_options="newColumns_state=true"/>
     </button>
-    <button style="background: #e7e7e7; {{ 'opacity: 0.5; cursor: not-allowed;' if this.schema.suggested_destructuring[pattern|int] is none}}" type="submit" pd_script="self.schema.suggest_destructuring({{pattern|int}})" {{ 'disabled' if this.schema.suggested_destructuring[pattern|int] is none}}>Use Suggestion
-      <target pd_target="pattern_panel{{prefix}}" pd_options="pattern={{pattern}}"/>
-      <target pd_target="help_panel{{prefix}}" pd_options="help=true"/>
-      <target pd_target="newColumns_panel{{prefix}}" pd_options="newColumns=true"/>
-      <target pd_target="transform_buttons{{prefix}}" pd_options="tranButtons=true"/>
+    <button style="background: #e7e7e7; {{ 'opacity: 0.5; cursor: not-allowed;' if this.schema.suggested_destructuring[pattern_state|int] is none}}" type="submit" pd_script="self.schema.transformer = self.schema.suggested_destructuring[{{pattern_state|int}}]" {{ 'disabled' if this.schema.suggested_destructuring[pattern_state|int] is none}}>Use Suggestion
+      <target pd_target="pattern_panel{{prefix}}" pd_options="pattern_state={{pattern_state}}"/>
+      <target pd_target="help_panel{{prefix}}" pd_options="help_state=true"/>
+      <target pd_target="newColumns_panel{{prefix}}" pd_options="newColumns_state=true"/>
+      <target pd_target="transform_buttons{{prefix}}" pd_options="tranButtons_state=true"/>
     </button>
   </div>
 {% else %}
   <div class="search">
     Enter Rosie Pattern:
     <br>
-    <input type="text" style="width: 250px;" id="pat{{prefix}}" class="searchTerm" value="{{this.schema.byteToStr(this.schema.transformer._pattern._definition) if this.schema.transformer.destructuring else this.schema.byteToStr(this.schema.transformer.pat)}}" disabled>
+    <input type="text" style="width: 250px;" id="pat{{prefix}}" class="searchTerm" value="{{this.schema.byteToStr(this.schema.transformer._pattern._definition)|e}}" disabled>
   </div>
   {%for comp in this.schema.transformer.components:%}
     <p>
@@ -43,18 +43,20 @@ self.schema.transformer.components[{{loop.index0}}]._definition = bytes23(html.u
   {%endfor%}
   <br>
   <button style="background: #e7e7e7;" type="submit">Clear
-    <target pd_target="pattern_panel{{prefix}}" pd_options="pattern={{pattern}}"/>
-    <target pd_target="help_panel{{prefix}}" pd_options="help=true"/>
-    <target pd_target="newColumns_panel{{prefix}}" pd_options="newColumns=true"/>
+    <target pd_target="pattern_panel{{prefix}}" pd_options="pattern_state={{pattern_state}}"/>
+    <target pd_target="help_panel{{prefix}}" pd_options="help_state=true"/>
+    <target pd_target="newColumns_panel{{prefix}}" pd_options="newColumns_state=true"/>
+    <target pd_target="transform_buttons{{prefix}}" pd_options="tranButtons_state=true"/>
     <pd_script type="preRun">
       return confirm("Are you sure you want to clear your transformation?");
     </pd_script>
     <pd_script>
-      self.schema.clear_transform();
+import pixiedust_rosie.classify.classify_data as cd
+self.schema.transformer=cd.Transform({{pattern_state|int}})
     </pd_script>
   </button>
-  <button style="background: #e7e7e7; {{ 'opacity: 0.5; cursor: not-allowed;' if this.schema.transformer.destructuring}}" type="submit" pd_script="self.schema.new_columns()" pd_options="transform={{transform}}" {{ 'disabled' if this.schema.transformer.destructuring }}>Create Columns
-    <target pd_target="newColumns_panel{{prefix}}" pd_options="newColumns=true"/>
-    <target pd_target="transform_buttons{{prefix}}" pd_options="tranButtons=true"/>
+  <button style="background: #e7e7e7; {{ 'opacity: 0.5; cursor: not-allowed;' if this.schema.transformer.destructuring}}" type="submit" pd_script="self.schema.new_columns(self.schema.transformer)" pd_options="transform_state={{transform_state}}" {{ 'disabled' if this.schema.transformer.destructuring }}>Create Columns
+    <target pd_target="newColumns_panel{{prefix}}" pd_options="newColumns_state=true"/>
+    <target pd_target="transform_buttons{{prefix}}" pd_options="tranButtons_state=true"/>
   </button>
 {% endif %}

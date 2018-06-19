@@ -18,12 +18,12 @@
     <div class="panel-body" style="height: 400px; overflow: auto;">
       <table class="table table-bordered table-striped">
         <thead>
-          <th style="text-align: left;">{{this.schema.colnames[transform|int]}}</th>
+          <th style="text-align: left;">{{this.schema.colnames[transform_state|int]}}</th>
         </thead>
         {%for row in this.schema.sample_data:%}
           <tr>
             {%for col in row:%}
-              {% if loop.index0 == transform|int %}
+              {% if loop.index0 == transform_state|int %}
                 <td style="text-align: left;">{{col}}</td>
               {% endif %}
             {%endfor%}

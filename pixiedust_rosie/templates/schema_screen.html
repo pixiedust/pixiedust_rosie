@@ -1,0 +1,100 @@
+<div id="schema_screen{{prefix}}">
+  <div class="well">
+    <H1 style="text-align: center;font-size: 180%;">Wrangle Data: Schema</H1>
+    <br>
+    <div class="panel panel-primary">
+      <div class="panel-heading">Schema</div>
+      <div class="panel-body" style="max-height: 300px; overflow: auto;">
+        <table class="table table-bordered table-striped">
+          <col width="30%">
+          <col width="15%">
+          <col width="15%">
+          <col width="8%">
+          <col width="15%">
+          <thead>
+            <th style="text-align: left;">Column Name</th>
+            <th style="text-align: left;">Rosie Type</th>
+            <th style="text-align: left;">Column Type</th>
+            <th style="text-align: left; word-wrap:break-word; white-space:normal;">Suggested Transform</th>
+            <th style="text-align: left;">Actions</th>
+          </thead>
+          {%for display, name, rosie_type, native_type in this.schema.create_schema_table()%}
+            {% if display %}
+              <tr>
+                <td style="text-align: left;">{{name}}</td>
+                <td style="text-align: left;">{{rosie_type if rosie_type is string else 'collection'}}</td>
+                <td style="text-align: left;">{{native_type.__name__}}</td>
+                <td style="text-align: center;">
+                  {% if this.schema.suggested_destructuring[loop.index0] %}
+                  <i class="fa fa-check"></i>
+                  {% endif %}
+                </td>
+                <td style="text-align: center;">
+                  <button class="btn btn-primary" style="font-size: 12px;" title="Rename Column" type="submit" pd_options="modify_state={{loop.index0}}">
+                    <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
+                  </button>
+                  <button class="btn btn-primary" style="font-size: 12px;" title="Transform Column" type="submit">
+                    <i class="fa fa-magic" aria-hidden="true"></i>
+                    {% if this.schema.suggested_destructuring[loop.index0] %}
+                      <target pd_target="schema_screen{{prefix}}" pd_options="suggestion_state={{loop.index0}}"/>
+                    {% else %}
+                      <target pd_target="schema_screen{{prefix}}" pd_options="transform_state={{loop.index0}}"/>
+                      <target pd_target="pattern_panel{{prefix}}" pd_options="pattern_state={{loop.index0}}"/>
+                      <target pd_target="help_panel{{prefix}}" pd_options="help_state=true"/>
+                      <target pd_target="newColumns_panel{{prefix}}" pd_options="newColumns_state=true"/>
+                      <target pd_target="transform_buttons{{prefix}}" pd_options="tranButtons_state=true"/>
+                      <pd_script>
+import pixiedust_rosie.classify.classify_data as cd
+self.schema.transformer=cd.Transform({{loop.index0}})
+                      </pd_script>
+                    {% endif %}
+                  </button>
+
+                  <button class="btn btn-primary" style="font-size: 12px;" title="Delete Column" type="submit" pd_refresh>
+                    <i class="fa fa-trash-o fa-lg"></i>
+                    <pd_script type="preRun">
+                      return confirm("Are you sure you want to delete '{{name}}'?");
+                    </pd_script>
+                    <pd_script>
+                      self.schema.hide_column({{loop.index0}});
+                    </pd_script>
+                  </button>
+                </td>
+              </tr>
+            {% endif %}
+          {%endfor%}
+        </table>
+      </div>
+    </div>
+    <br/>
+    <div class="panel panel-primary">
+      <div class="panel-heading">Sample Data</div>
+      <div class="panel-body" style="max-height: 400px; overflow: auto;">
+        <table class="table table-bordered table-striped" style="width: 100%">
+          <thead>
+            {%for name in this.schema.colnames:%}
+              {% if this.schema.column_visibility[loop.index0] %}
+                <th title="{{name}}" style="text-align: left; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; width: 150px">{{name}}</th>
+              {% endif %}
+            {%endfor%}
+          </thead>
+          {%for row in this.schema.sample_data:%}
+            <tr>
+              {%for col in row:%}
+                {% if this.schema.column_visibility[loop.index0] %}
+                  <td title="{{col}}" style="text-align: left; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; width: 150px">{{col}}</td>
+                {% endif %}
+              {%endfor%}
+            </tr>
+          {%endfor%}
+        </table>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="font-size: 12px;" type="submit" pd_options="finish_state=true">Finish
+      <pd_script>
+self.schema.process_file()
+self.schema.create_finish_cell()
+      </pd_script>
+    </button>
+  </div>
+</div>

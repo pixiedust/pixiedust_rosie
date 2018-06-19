@@ -8,11 +8,11 @@
       {%endfor%}
     </thead>
     {%for row in this.schema.transformer.new_sample_data_display:%}
-    <tr>
-      {%for col in row:%}
-        <td style="text-align: left;">{{col}}</td>
-      {%endfor%}
-    </tr>
+      <tr>
+        {%for col in row:%}
+          <td style="text-align: left;">{{col}}</td>
+        {%endfor%}
+      </tr>
     {%endfor%}
   </table>
 {% else %}
