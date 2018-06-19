@@ -84,12 +84,12 @@ def test():
     print()
     print("Make a new column based on column 26 to extract the numeric part:")
     s.transformer = classify_data.Transform(26)
-    new = s.new_columns()
+    new = s.new_columns(s.transformer)
     assert( new is False )
     assert( 'pattern' in s.transformer.errors ) # Please enter a pattern
 
     s.transformer = classify_data.Transform(26, '{[^0-9]* n}')
-    new = s.new_columns()
+    new = s.new_columns(s.transformer)
     assert( new is False )
     assert( 'pattern' in s.transformer.errors ) # Please enter a pattern
 
@@ -99,7 +99,7 @@ def test():
     assert(pat._definition is None)
     pat._definition = b'[0-9]*'
 
-    new = s.new_columns()
+    new = s.new_columns(s.transformer)
     assert( new )
     assert( s.transformer.errors == None )
     # print('*** pattern:', tr1._pattern._definition)
@@ -113,7 +113,7 @@ def test():
     print("Make ONE new column from column 26 with the alpha part when it has the form 'OVR01':")
 
     s.transformer = classify_data.Transform(26, '{prefix num.int}')
-    new = s.new_columns()
+    new = s.new_columns(s.transformer)
     assert( new is False )
     assert( 'pattern' in s.transformer.errors )
     
@@ -123,7 +123,7 @@ def test():
     assert(pat._definition is None)
     pat._definition = b'[A-Z]+'
 
-    new = s.new_columns()
+    new = s.new_columns(s.transformer)
     assert( new )
     assert( s.transformer.errors is None )
 
@@ -148,7 +148,7 @@ def test():
     assert(pat._definition is None)
     pat._definition = b'[A-Z]+'
 
-    new = s.new_columns()
+    new = s.new_columns(s.transformer)
     assert( new )
     assert( s.transformer.errors is None )
 
@@ -177,7 +177,7 @@ def test():
     # assert(pat._definition is None)
     # pat._definition = False
 
-    new = s.new_columns()
+    new = s.new_columns(s.transformer)
     assert( new )
     assert( s.transformer.errors is None )
 
@@ -202,7 +202,7 @@ def test():
     assert(pat._definition is None)
     pat._definition = b'[:digit:]'
 
-    new = s.new_columns()
+    new = s.new_columns(s.transformer)
     assert( new )
     assert( s.transformer.errors is None )
 
@@ -224,7 +224,7 @@ def test():
     
 # ---------------------------------------------------------------------------------------------------
     print()
-    print("Let's try to INFER a destructing for column 25")
+    print("Let's try to INFER a destructing for column 25, with rosie type {}".format(s.rosie_types[25]))
 
     tr3, err = s.suggest_destructuring(25)
     print('***', repr(err))
@@ -247,7 +247,7 @@ def test():
 
     s.transformer, err = s.suggest_destructuring(26+2)
     
-    new = s.new_columns()
+    new = s.new_columns(s.transformer)
 
     assert( new )
     assert( s.transformer.errors is None )
@@ -300,7 +300,7 @@ def test():
     assert(pat._definition is None)
     pat._definition = b'keepto:(>"among")'
 
-    s.new_columns()
+    s.new_columns(s.transformer)
     new = s.transformer.new_sample_data
     assert( new )
     assert( s.transformer.errors is None )
@@ -313,6 +313,22 @@ def test():
 
     s.commit_new_columns()
     classify_data.print_sample_data_verbosely(s, 9)    
+
+# ---------------------------------------------------------------------------------------------------
+
+
+    print()
+    print('Attempting to load SalesJan2009.csv')
+
+    # "http://samplecsvs.s3.amazonaws.com/SalesJan2009.csv"
+    s = classify_data.Schema("SalesJan2009.csv", 20)
+    ok, err = s.load_and_process()
+    if not ok:
+        print('    failed to load sample data: ' + err)
+
+
+    classify_data.print_sample_data_verbosely(s, 9)    
+
 
 # ---------------------------------------------------------------------------------------------------
     sys.exit(0)

@@ -416,12 +416,16 @@ class Schema:
         newcols = list(map23(lambda cn: list(), component_names))
         for rownum, row in enumerate(self.sample_data):
             m = self.matcher.match(pat, row[colnum])
-            for compnum, cn in enumerate(component_names):
-                if transformer.destructuring:
-                    datum = m['subs'][compnum]['data']
-                else:
-                    datum = self.matcher.extract(m, cn)
-                newcols[compnum].append(datum)
+            if m == None:
+                #raise ValueError('m is None at row {}, col {}\n{}\n{}'.format(rownum, colnum, row, transformer._pattern._definition))
+                newcols[compnum] = [None for _ in component_names]
+            else:
+                for compnum, cn in enumerate(component_names):
+                    if transformer.destructuring:
+                        datum = m['subs'][compnum]['data']
+                    else:
+                        datum = self.matcher.extract(m, cn)
+                    newcols[compnum].append(datum)
         transformer.new_sample_data = newcols
         transformer.new_sample_data_display = zip23(*newcols)
         return True
@@ -552,10 +556,21 @@ class Schema:
             return False, err
         if not column_data[0]:
             return None, None
-        pattern_definition, fields = self._infer.from_datum(column_data[0])
-        if not pattern_definition:
-            return None, None
-        if not fields:
+        if self.rosie_types[colnum] in { Schema_any_type,
+                                         Schema_empty_type,
+                                         Schema_record_type,
+                                         'all.identifier',
+                                         'all.unmatched' }:
+            pattern_definition, fields = self._infer.from_datum(column_data[0])
+            if not pattern_definition:
+                return None, None
+            if not fields:
+                return None, None
+        else:
+            # Otherwise, the rosie type is, e.g. date.us_slashed or
+            # something that we can probably destructure another way.
+            # In future, we'll add those other ways, after we have
+            # reorganized this code.
             return None, None
         transformer = Transform(colnum, pattern_definition)
         transformer.destructuring = True
