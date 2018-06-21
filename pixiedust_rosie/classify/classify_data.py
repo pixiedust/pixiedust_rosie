@@ -505,8 +505,10 @@ class Schema:
     #
     # Assumes every row of sample_data has self.cols columns.
     #
-    # We will take the types of the first row of data as canonical.  In
-    # the future, we should probably do something more sophisticated.
+    # We will take the types of the first row of data as canonical.
+    # In the future, we should examine the types of every row in a
+    # given column, and calculate their dominating type (e.g. float
+    # dominates float and int, a record of strs dominates a single str).
     #
     def resolve_type_ambiguities(self):
         self.rosie_types = self.sample_data_types[0][:]
@@ -518,13 +520,31 @@ class Schema:
                     # matches anything
                     continue
                 elif isinstance(rtype, Schema_record_type):
-                    # matches only another record type with the same slots
                     item_type = self.sample_data_types[row][col]
+                    # matches if (1) another record type with the same slots
                     if isinstance(item_type, Schema_record_type):
                         if item_type.parameters == rtype.parameters:
                             continue
+                    # or if (2) the record is all word.any and the data is word.any
+                    if item_type == 'word.any':
+                        if rtype.parameters[0]=='word.any' and len(set(rtype.parameters))==1:
+                            continue
+                elif rtype == 'word.any':
+                    item_type = self.sample_data_types[row][col]
+                    if item_type == 'word.any':
+                        continue
+                    # same special case as above
+                    if isinstance(item_type, Schema_record_type):
+                        if item_type.parameters[0]=='word.any' and len(set(item_type.parameters))==1:
+                            continue
                 elif self.sample_data_types[row][col] == rtype:
                     # these types are rosie pattern names, which must match exactly
+                    continue
+                elif self.sample_data_types[row][col] is Schema_empty_type:
+                    # Schema_empty_type signals absence of data, and
+                    # we will consider a column of types to be
+                    # unambiguous if all the non-empty types are the
+                    # same
                     continue
                 self.rosie_types[col] = Schema_any_type
 
@@ -710,9 +730,9 @@ def print_sample_data_column(s, colnum):
           (rtype is Schema_any_type) and "ambiguous type" or "type " + rtype)
     print("Here is sample data:")
     for rownum, row in enumerate(s.sample_data):
-        rownum = repr(rownum).ljust(5)
-        data = repr(row[colnum] or "False")
-        print('  row', rownum, data[:30].ljust(30))
+        row_repr = repr(rownum).ljust(5)
+        data_repr = repr(row[colnum] or "")[:30].ljust(30)
+        print('  row', row_repr, data_repr, 'rtype:', s.sample_data_types[rownum][colnum])
 
 def print_ambiguously_typed_columns(s):
     for colnum, rtype in enumerate(s.rosie_types):

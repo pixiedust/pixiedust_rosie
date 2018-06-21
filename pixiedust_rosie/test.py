@@ -329,6 +329,7 @@ def test():
 
     classify_data.print_sample_data_verbosely(s, 9)    
 
+    classify_data.print_ambiguously_typed_columns(s)
 
 # ---------------------------------------------------------------------------------------------------
     sys.exit(0)
