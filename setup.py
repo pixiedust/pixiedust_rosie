@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 setup(name='pixiedust_rosie',
-      version='0.3',
+      version='0.4',
       description='Data Wrangling',
       url='https://github.com/ibm-watson-data-lab/pixiedust_rosie',
       install_requires=['pixiedust', 'rosie'],
