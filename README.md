@@ -1,9 +1,9 @@
 # pixiedust_rosie
-Integrate Rosie Pattern Language into a "wrangle data" capability
+Integrate [Rosie Pattern Language](http://rosie-lang.org) into a "wrangle data" capability.
 
 ## Getting started
 
-* Create a Jupyter notebook in your local environment
+* Create a Jupyter notebook in your local environment and associate it with a Python kernel
 * Install the [`pixiedust`](https://pypi.org/project/pixiedust/), [`rosie`](https://pypi.org/project/rosie/) and [`pixieduct_rosie`](https://pypi.org/project/pixiedust_rosie/) packages
 
   ```
